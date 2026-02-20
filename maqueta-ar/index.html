@@ -70,15 +70,17 @@
 
     <!-- Target 3: Muro (Graffiti - jordano.png) - Sin modelo 3D -->
     <a-entity mindar-image-target="targetIndex: 3" data-id="muro">
-      <a-plane color="white" position="0 0 0" width="1" height="1" material="opacity: 0.5; transparent: true">
-        <a-text value="Muro Detectado" align="center" color="black" position="0 0 0.01" scale="0.5 0.5 0.5"></a-text>
+      <a-plane color="#E91E63" position="0 0 0" width="1.2" height="0.8" material="opacity: 0.85; transparent: true">
+        <a-text value="🎨 MURO DETECTADO\nBloquea para pintar" align="center" color="white" position="0 0 0.01"
+          scale="0.4 0.4 0.4" wrap-count="20"></a-text>
       </a-plane>
     </a-entity>
 
     <!-- Target 4: Proceso (Torre - proceso.png) - Sin modelo 3D -->
     <a-entity mindar-image-target="targetIndex: 4" data-id="proceso">
-      <a-plane color="#FFD700" position="0 0 0" width="1" height="1" material="opacity: 0.5; transparent: true">
-        <a-text value="Proceso Detectado" align="center" color="black" position="0 0 0.01" scale="0.5 0.5 0.5"></a-text>
+      <a-plane color="#FF9800" position="0 0 0" width="1.2" height="0.8" material="opacity: 0.85; transparent: true">
+        <a-text value="🏗️ PROCESO DETECTADO\nBloquea para jugar" align="center" color="white" position="0 0 0.01"
+          scale="0.4 0.4 0.4" wrap-count="20"></a-text>
       </a-plane>
     </a-entity>
 
@@ -330,6 +332,7 @@
 
     targets.forEach(target => {
       target.addEventListener("targetFound", () => {
+        console.log('✅ TARGET FOUND:', target.dataset.id, 'index:', target.getAttribute('mindar-image-target'));
         if (isLocked) return;
         currentTargetId = target.dataset.id;
         const model = target.querySelector('a-gltf-model') || target.querySelector('a-plane');
@@ -338,6 +341,7 @@
       });
 
       target.addEventListener("targetLost", () => {
+        console.log('❌ TARGET LOST:', target.dataset.id);
         if (isLocked) return;
         setTimeout(() => {
           if (!isLocked && currentTargetId === target.dataset.id) {
