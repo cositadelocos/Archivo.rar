@@ -19,25 +19,18 @@
       <div class="scan-line"></div>
     </div>
 
-    <!-- CONTROLES DE CALIBRACIÓN (TEMPORAL) -->
-    <div id="calibration-controls"
-      style="background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; margin-bottom: 20px; text-align: left; width: 80%; pointer-events: auto;">
-      <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #00e5ff;">🔧 Calibración</h3>
-
-      <label style="font-size: 12px;">Escala <span id="val-scale">1.5</span></label>
-      <input type="range" min="0.1" max="5" step="0.1" value="1.5" id="slider-scale" style="width: 100%;">
-
-      <label style="font-size: 12px;">Rot X <span id="val-rotx">90</span></label>
-      <input type="range" min="-180" max="180" step="5" value="90" id="slider-rotx" style="width: 100%;">
-
-      <label style="font-size: 12px;">Rot Y <span id="val-roty">0</span></label>
-      <input type="range" min="-180" max="180" step="5" value="0" id="slider-roty" style="width: 100%;">
+    <!-- Botonera Inferior -->
+    <div id="action-bar" class="hidden"
+      style="position: absolute; bottom: 30px; display: flex; gap: 10px; z-index: 1001;">
+      <!-- Botón Info -->
+      <button id="info-btn" class="action-btn">
+        ℹ️ Ficha
+      </button>
+      <!-- Botón Lock -->
+      <button id="lock-btn" class="action-btn">
+        🔓 Bloquear
+      </button>
     </div>
-
-    <!-- Botón de Información -->
-    <button id="info-btn" class="hidden">
-      ℹ️ Ver Ficha
-    </button>
 
     <!-- Tarjeta de Información -->
     <div id="info-card" class="hidden">
@@ -53,7 +46,6 @@
     device-orientation-permission-ui="enabled: false">
 
     <a-assets>
-      <!-- Modelos 3D del usuario -->
       <a-asset-item id="modelo-brote" src="./assets/models/brote.glb"></a-asset-item>
       <a-asset-item id="modelo-carro" src="./assets/models/carro.glb"></a-asset-item>
       <a-asset-item id="modelo-mueble" src="./assets/models/mueble.glb"></a-asset-item>
@@ -61,29 +53,29 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target 0: Brote -->
-    <a-entity mindar-image-target="targetIndex: 0" data-id="brote">
-      <!-- Escala ajustada a 1.5 según feedback -->
-      <a-gltf-model id="model-brote" src="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5"
-        rotation="90 0 0"></a-gltf-model>
+    <!-- 
+           MODELOS INDEPENDIENTES (GHOSTS) 
+           Estos modelos no están dentro de los targets para poder controlarlos manualmente.
+           Se moverán via script para coincidir con el target cuando se detecte.
+      -->
+    <a-entity id="ghost-brote" visible="false">
+      <a-gltf-model src="#modelo-brote" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+    <a-entity id="ghost-mueble" visible="false">
+      <a-gltf-model src="#modelo-mueble" scale="2.3 2.3 2.3" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+    <a-entity id="ghost-carro" visible="false">
+      <a-gltf-model src="#modelo-carro" scale="1.2 1.2 1.2" rotation="70 -5 0"></a-gltf-model>
     </a-entity>
 
-    <!-- Target 1: Mueble -->
-    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
-      <a-gltf-model id="model-mueble" src="#modelo-mueble" position="0 0 0" scale="1.5 1.5 1.5"
-        rotation="90 0 0"></a-gltf-model>
-    </a-entity>
-
-    <!-- Target 2: Carro -->
-    <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
-      <a-gltf-model id="model-carro" src="#modelo-carro" position="0 0 0" scale="1.5 1.5 1.5"
-        rotation="90 0 0"></a-gltf-model>
-    </a-entity>
+    <!-- TARGETS (Solo referencias vacías para tracking) -->
+    <a-entity mindar-image-target="targetIndex: 0" data-id="brote" class="target-ref"></a-entity>
+    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble" class="target-ref"></a-entity>
+    <a-entity mindar-image-target="targetIndex: 2" data-id="carro" class="target-ref"></a-entity>
 
   </a-scene>
 
   <script>
-    // Datos de las piezas
     const piecesData = {
       'brote': {
         title: "Brote",
@@ -108,102 +100,116 @@
 
     const sceneEl = document.querySelector('a-scene');
     const scanInstruction = document.getElementById('scan-instruction');
+    const actionBar = document.getElementById('action-bar');
     const infoBtn = document.getElementById('info-btn');
+    const lockBtn = document.getElementById('lock-btn');
     const infoCard = document.getElementById('info-card');
     const closeCardBtn = document.getElementById('close-card');
 
-    // Elementos de la tarjeta
     const cardTitle = document.getElementById('card-title');
     const cardYear = document.getElementById('card-year');
     const cardDesc = document.getElementById('card-desc');
 
-    // Sliders de Calibración
-    const sScale = document.getElementById('slider-scale');
-    const sRotX = document.getElementById('slider-rotx');
-    const sRotY = document.getElementById('slider-roty');
-    const vScale = document.getElementById('val-scale');
-    const vRotX = document.getElementById('val-rotx');
-    const vRotY = document.getElementById('val-roty');
-
+    // Estado del sistema
     let currentTargetId = null;
-    let currentModel = null;
+    let isLocked = false;
 
-    function updateModelTransform() {
-      if (!currentModel) return;
-      const s = sScale.value;
-      const rx = sRotX.value;
-      const ry = sRotY.value;
+    // Referencias a entidades
+    const targets = {
+      'brote': { ref: document.querySelector('[data-id="brote"]'), ghost: document.querySelector('#ghost-brote') },
+      'mueble': { ref: document.querySelector('[data-id="mueble"]'), ghost: document.querySelector('#ghost-mueble') },
+      'carro': { ref: document.querySelector('[data-id="carro"]'), ghost: document.querySelector('#ghost-carro') }
+    };
 
-      currentModel.setAttribute('scale', `${s} ${s} ${s}`);
-      currentModel.setAttribute('rotation', `${rx} ${ry} 0`);
+    // Loop de sincronización (Ghost Follower)
+    sceneEl.addEventListener("tick", (e) => {
+      if (isLocked) return; // Si está bloqueado, no actualizamos posición (se queda quieto en el mundo)
 
-      vScale.textContent = s;
-      vRotX.textContent = rx;
-      vRotY.textContent = ry;
-    }
-
-    sScale.addEventListener('input', updateModelTransform);
-    sRotX.addEventListener('input', updateModelTransform);
-    sRotY.addEventListener('input', updateModelTransform);
-
-    // Cerrar tarjeta
-    closeCardBtn.addEventListener('click', () => {
-      infoCard.classList.add('hidden');
-      infoBtn.classList.remove('hidden'); // Mostrar botón de nuevo
+      for (const key in targets) {
+        const t = targets[key];
+        // Verificamos si el target está visible (trackeado)
+        // MindAR pone visible=true/false en el target entity
+        if (t.ref.object3D.visible) {
+          // Copiar transformación del target al ghost
+          t.ghost.object3D.position.copy(t.ref.object3D.position);
+          t.ghost.object3D.quaternion.copy(t.ref.object3D.quaternion);
+          t.ghost.object3D.visible = true;
+        } else {
+          t.ghost.object3D.visible = false;
+        }
+      }
     });
 
-    // Abrir tarjeta
+    // Eventos de Botones
+    closeCardBtn.addEventListener('click', () => {
+      infoCard.classList.add('hidden');
+      actionBar.classList.remove('hidden');
+    });
+
     infoBtn.addEventListener('click', () => {
       if (currentTargetId && piecesData[currentTargetId]) {
         const data = piecesData[currentTargetId];
         cardTitle.textContent = data.title;
         cardYear.textContent = data.year;
-        // USAR innerHTML PARA PERMITIR FORMATO RICO (LISTAS, NEGRITAS, ETC)
         cardDesc.innerHTML = data.desc;
 
         infoCard.classList.remove('hidden');
-        infoBtn.classList.add('hidden'); // Ocultar botón al abrir tarjeta
+        actionBar.classList.add('hidden');
       }
     });
 
-    // Detectar targets
-    const targets = document.querySelectorAll('[mindar-image-target]');
+    lockBtn.addEventListener('click', () => {
+      isLocked = !isLocked;
+      if (isLocked) {
+        lockBtn.textContent = "🔒 Desbloquear";
+        lockBtn.style.background = "#ff4444";
+        lockBtn.style.color = "white";
+        scanInstruction.classList.add('hidden'); // Asegurar oculto
+      } else {
+        lockBtn.textContent = "🔓 Bloquear";
+        lockBtn.style.background = "rgba(255, 255, 255, 0.95)";
+        lockBtn.style.color = "#111";
 
-    targets.forEach(target => {
+        // Si soltamos el lock y no hay target, se ocultará en el siguiente tick
+      }
+    });
+
+    // Detección de eventos (Solo para lógica UI, no para visualización modelo)
+    Object.values(targets).forEach(obj => {
+      const target = obj.ref;
+
       target.addEventListener("targetFound", event => {
+        if (isLocked) return; // Ignorar nuevos targets si estamos bloqueados
+
         console.log("Found:", target.dataset.id);
         currentTargetId = target.dataset.id;
 
-        // Capturar el modelo interno para calibrarlo
-        currentModel = target.querySelector('a-gltf-model');
-
         // UI Feedback
         scanInstruction.classList.add('hidden');
-        infoBtn.classList.remove('hidden');
+        actionBar.classList.remove('hidden');
 
-        // Si cambias de target rápido, cerrar la tarjeta anterior si estaba abierta
-        if (!infoCard.classList.contains('hidden')) {
-          // Opcional: Actualizar tarjeta en caliente si ya estaba abierta
-          const data = piecesData[currentTargetId];
-          cardTitle.textContent = data.title;
-          cardYear.textContent = data.year;
-          cardDesc.innerHTML = data.desc;
-        }
+        // Reiniciar botón lock al cambiar de target
+        // isLocked = false; 
+        // lockBtn.textContent = "🔓 Bloquear";
+        // ... 
       });
 
       target.addEventListener("targetLost", event => {
         console.log("Lost:", target.dataset.id);
-        // Solo ocultar si es el target actual
-        if (currentTargetId === target.dataset.id) {
-          // currentTargetId = null; // Comentado para 'recordar' el último si se pierde brevemente
-
-          // UI Feedback
-          // Opcional: ¿Queremos que desaparezca todo al perder el target o que persista unos segundos?
-          // Por ahora, simple:
-          scanInstruction.classList.remove('hidden');
-          infoBtn.classList.add('hidden');
-          infoCard.classList.add('hidden');
-          currentModel = null; // Soltar referencia
+        if (isLocked) {
+          // NO HACER NADA, mantenemos todo visible
+        } else {
+          // Si no está bloqueado, ocultar UI
+          if (currentTargetId === target.dataset.id) {
+            // Pequeño delay para evitar parpadeo
+            setTimeout(() => {
+              if (!isLocked && !target.object3D.visible) {
+                scanInstruction.classList.remove('hidden');
+                actionBar.classList.add('hidden');
+                infoCard.classList.add('hidden');
+              }
+            }, 200);
+          }
         }
       });
     });
