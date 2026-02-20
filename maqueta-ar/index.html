@@ -41,7 +41,7 @@
     </div>
   </div>
 
-  <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind?v=2; maxTrack: 5; filterMinCF:0.0001; filterBeta: 0.001;"
+  <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind?v=3; maxTrack: 5; filterMinCF:0.0001; filterBeta: 0.001;"
     color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
 
@@ -58,14 +58,14 @@
       <a-gltf-model src="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
-    <!-- Target 1: Mueble -->
-    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
-      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="2.3 2.3 2.3" rotation="90 0 0"></a-gltf-model>
+    <!-- Target 1: Carro -->
+    <a-entity mindar-image-target="targetIndex: 1" data-id="carro">
+      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="1.2 1.2 1.2" rotation="70 -5 0"></a-gltf-model>
     </a-entity>
 
-    <!-- Target 2: Carro -->
-    <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
-      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="1.2 1.2 1.2" rotation="70 -5 0"></a-gltf-model>
+    <!-- Target 2: Mueble -->
+    <a-entity mindar-image-target="targetIndex: 2" data-id="mueble">
+      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="2.3 2.3 2.3" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
     <!-- Target 3: Muro (Graffiti - jordano.png) - Sin modelo 3D -->
