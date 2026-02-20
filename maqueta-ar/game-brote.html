@@ -102,7 +102,11 @@
 
         <div class="hud-text">
             <h1>Hazlo Crecer 🌱</h1>
-            <div id="msg-box">Toca la pantalla a un ritmo suave...</div>
+            <div id="msg-box">
+                <p style="margin:0; font-weight:bold">Instrucciones:</p>
+                <p style="margin:5px 0 0 0; font-size:1rem">Toca la pantalla rítmicamente (como un latido 💓).<br>Si
+                    tocas muy rápido, se estresa.</p>
+            </div>
         </div>
     </div>
 
@@ -110,6 +114,16 @@
         <a-assets>
             <a-asset-item id="modelo-brote" src="./assets/models/brote.glb"></a-asset-item>
         </a-assets>
+
+        <!-- Sistema de Partículas Simple (Entidades invisibles que se activan) -->
+        <a-entity id="particles" position="0 1 0" visible="false">
+            <a-sphere color="yellow" position="0 0 0" radius="0.05"
+                animation="property: position; to: 1 1 0; dur: 1000; easing: easeOutQuad"></a-sphere>
+            <a-sphere color="pink" position="0 0 0" radius="0.05"
+                animation="property: position; to: -1 1.5 0; dur: 1200; easing: easeOutQuad"></a-sphere>
+            <a-sphere color="white" position="0 0 0" radius="0.05"
+                animation="property: position; to: 0 2 1; dur: 800; easing: easeOutQuad"></a-sphere>
+        </a-entity>
 
         <!-- Iluminación para resaltar el modelo -->
         <a-light type="ambient" color="#BBB"></a-light>
