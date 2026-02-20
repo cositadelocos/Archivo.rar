@@ -16,6 +16,7 @@
     <!-- Mensaje de escaneo (se oculta al encontrar target) -->
     <div id="scan-instruction" class="instruction-box">
       <p>Apunta a un marcador</p>
+      <small style="color: #00e5ff; font-size: 10px;">v3.0 (Escala x5)</small>
       <div class="scan-line"></div>
     </div>
 
@@ -48,17 +49,18 @@
 
     <!-- Target 0: Brote -->
     <a-entity mindar-image-target="targetIndex: 0" data-id="brote">
-      <a-gltf-model src="#modelo-brote" position="0 0 0" scale="0.1 0.1 0.1" rotation="0 0 0"></a-gltf-model>
+      <!-- Escala aumentada a 5 (50x original) para asegurar visibilidad -->
+      <a-gltf-model src="#modelo-brote" position="0 0 0" scale="5 5 5" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
     <!-- Target 1: Mueble -->
     <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
-      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="0.1 0.1 0.1" rotation="0 0 0"></a-gltf-model>
+      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="5 5 5" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
     <!-- Target 2: Carro -->
     <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
-      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="0.1 0.1 0.1" rotation="0 0 0"></a-gltf-model>
+      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="5 5 5" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
   </a-scene>
