@@ -170,6 +170,7 @@
     // Variables de interacción
     let isDragging = false;
     let previousMouseX = 0;
+    let previousMouseY = 0;
 
     // Eventos de interacción (Touch/Mouse) para rotar el modelo bloqueado
     document.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -182,17 +183,21 @@
 
     function onTouchStart(e) {
       if (!isLocked || !lockedClone) return;
-      // Evitar scroll
-      // e.preventDefault(); 
       isDragging = true;
       previousMouseX = e.touches[0].clientX;
+      previousMouseY = e.touches[0].clientY;
     }
 
     function onTouchMove(e) {
       if (!isDragging || !isLocked || !lockedClone) return;
+      // e.preventDefault(); // Opcional: descomentar si el scroll molesta
       const deltaX = e.touches[0].clientX - previousMouseX;
-      rotateModel(deltaX);
+      const deltaY = e.touches[0].clientY - previousMouseY;
+
+      rotateModel(deltaX, deltaY);
+
       previousMouseX = e.touches[0].clientX;
+      previousMouseY = e.touches[0].clientY;
     }
 
     function onTouchEnd() {
@@ -203,23 +208,36 @@
       if (!isLocked || !lockedClone) return;
       isDragging = true;
       previousMouseX = e.clientX;
+      previousMouseY = e.clientY;
     }
 
     function onMouseMove(e) {
       if (!isDragging || !isLocked || !lockedClone) return;
       const deltaX = e.clientX - previousMouseX;
-      rotateModel(deltaX);
+      const deltaY = e.clientY - previousMouseY;
+
+      rotateModel(deltaX, deltaY);
+
       previousMouseX = e.clientX;
+      previousMouseY = e.clientY;
     }
 
     function onMouseUp() {
       isDragging = false;
     }
 
-    function rotateModel(deltaX) {
-      // Sensibilidad de rotación
-      const rotationSpeed = 0.01;
-      lockedClone.object3D.rotation.y += deltaX * rotationSpeed;
+    function rotateModel(deltaX, deltaY) {
+      // Sensibilidad
+      const speed = 0.01;
+
+      // Rotar sobre ejes MUNDIALES (o de la cámara) para que sea intuitivo
+      // Eje Y del mundo (Arriba/Abajo) para movimiento horizontal del dedo
+      const yAxis = new THREE.Vector3(0, 1, 0);
+      // Eje X del mundo (Izquierda/Derecha) para movimiento vertical del dedo
+      const xAxis = new THREE.Vector3(1, 0, 0);
+
+      lockedClone.object3D.rotateOnWorldAxis(yAxis, deltaX * speed);
+      lockedClone.object3D.rotateOnWorldAxis(xAxis, deltaY * speed);
     }
 
     // Eventos UI
