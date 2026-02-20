@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maqueta AR - Galería Museográfica</title>
+  <!-- Carga de A-Frame y MindAR desde CDN -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body>
+  <!-- UI Overlay: Botón de Info y Tarjeta de Detalles -->
+  <div id="ui-layer">
+    <!-- Mensaje de escaneo (se oculta al encontrar target) -->
+    <div id="scan-instruction" class="instruction-box">
+      <p>Apunta a un marcador</p>
+      <div class="scan-line"></div>
+    </div>
+
+    <!-- Botón de Información (aparece al encontrar target) -->
+    <button id="info-btn" class="hidden">
+      ℹ️ Ver Ficha
+    </button>
+
+    <!-- Tarjeta de Información (Modal) -->
+    <div id="info-card" class="hidden">
+      <button id="close-card">×</button>
+      <h2 id="card-title">Título de la Pieza</h2>
+      <span id="card-year" class="badge">2024</span>
+      <div id="card-desc">Descripción de la pieza museográfica...</div>
+    </div>
+  </div>
+
+  <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind; filterMinCF:0.0001; filterBeta: 0.001;"
+    color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+    <a-assets>
+      <!-- Modelos 3D del usuario -->
+      <a-asset-item id="modelo-brote" src="./assets/models/brote.glb"></a-asset-item>
+      <a-asset-item id="modelo-carro" src="./assets/models/carro.glb"></a-asset-item>
+      <a-asset-item id="modelo-mueble" src="./assets/models/mueble.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Target 0: Brote -->
+    <a-entity mindar-image-target="targetIndex: 0" data-id="brote">
+      <a-gltf-model src="#modelo-brote" position="0 0 0" scale="1 1 1" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+
+    <!-- Target 1: Mueble -->
+    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
+      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="1 1 1" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+
+    <!-- Target 2: Carro -->
+    <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
+      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="1 1 1" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    // Datos de las piezas
+    const piecesData = {
+      'brote': {
+        title: "Brote",
+        year: "Proyecto",
+        desc: `
+            <p>Surge como respuesta a la tensión entre las raíces del eucalipto pomarroso y la rigidez del pavimento. A través de un sistema modular inspirado en patrones rizomáticos, protege, oxigena y revitaliza el suelo sin limitar el crecimiento vegetal.</p>
+            
+            <strong>Concepto</strong>
+            <p>El proyecto nace de la tensión entre las raíces del eucalipto y la rigidez del pavimento urbano. Se plantea un sistema modular que transforma el conflicto en una oportunidad de coexistencia.</p>
+            
+            <strong>¿Cómo funciona?</strong>
+            <ul style="padding-left: 20px; list-style-type: disc;">
+              <li>Primero se coloca un módulo en la base para oxigenar y drenar.</li>
+              <li>Después el módulo respira: entra aire y el agua se filtra.</li>
+              <li>El suelo revitalizado favorece la aparición de vegetación.</li>
+              <li>Finalmente los submódulos forman una red de convivencia armónica.</li>
+            </ul>
+            <p><em>En resumen, el sistema transforma un espacio rígido en uno vivo y adaptable.</em></p>
+          `
+      },
+      'mueble': {
+        title: "Silla Eames",
+        year: "1956",
+        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel, combinando confort y estética.</p>"
+      },
+      'carro': {
+        title: "Automóvil Clásico",
+        year: "1965",
+        desc: "<p>Vehículo de época restaurado. Muestra la evolución del diseño industrial automotriz.</p>"
+      }
+    };
+
+    const sceneEl = document.querySelector('a-scene');
+    const scanInstruction = document.getElementById('scan-instruction');
+    const infoBtn = document.getElementById('info-btn');
+    const infoCard = document.getElementById('info-card');
+    const closeCardBtn = document.getElementById('close-card');
+
+    // Elementos de la tarjeta
+    const cardTitle = document.getElementById('card-title');
+    const cardYear = document.getElementById('card-year');
+    const cardDesc = document.getElementById('card-desc');
+
+    let currentTargetId = null;
+
+    // Cerrar tarjeta
+    closeCardBtn.addEventListener('click', () => {
+      infoCard.classList.add('hidden');
+      infoBtn.classList.remove('hidden'); // Mostrar botón de nuevo
+    });
+
+    // Abrir tarjeta
+    infoBtn.addEventListener('click', () => {
+      if (currentTargetId && piecesData[currentTargetId]) {
+        const data = piecesData[currentTargetId];
+        cardTitle.textContent = data.title;
+        cardYear.textContent = data.year;
+        // USAR innerHTML PARA PERMITIR FORMATO RICO (LISTAS, NEGRITAS, ETC)
+        cardDesc.innerHTML = data.desc;
+
+        infoCard.classList.remove('hidden');
+        infoBtn.classList.add('hidden'); // Ocultar botón al abrir tarjeta
+      }
+    });
+
+    // Detectar targets
+    const targets = document.querySelectorAll('[mindar-image-target]');
+
+    targets.forEach(target => {
+      target.addEventListener("targetFound", event => {
+        console.log("Found:", target.dataset.id);
+        currentTargetId = target.dataset.id;
+
+        // UI Feedback
+        scanInstruction.classList.add('hidden');
+        infoBtn.classList.remove('hidden');
+
+        // Si cambias de target rápido, cerrar la tarjeta anterior si estaba abierta
+        if (!infoCard.classList.contains('hidden')) {
+          // Opcional: Actualizar tarjeta en caliente si ya estaba abierta
+          const data = piecesData[currentTargetId];
+          cardTitle.textContent = data.title;
+          cardYear.textContent = data.year;
+          cardDesc.textContent = data.desc;
+        }
+      });
+
+      target.addEventListener("targetLost", event => {
+        console.log("Lost:", target.dataset.id);
+        // Solo ocultar si es el target actual
+        if (currentTargetId === target.dataset.id) {
+          // currentTargetId = null; // Comentado para 'recordar' el último si se pierde brevemente
+
+          // UI Feedback
+          // Opcional: ¿Queremos que desaparezca todo al perder el target o que persista unos segundos?
+          // Por ahora, simple:
+          scanInstruction.classList.remove('hidden');
+          infoBtn.classList.add('hidden');
+          infoCard.classList.add('hidden');
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
