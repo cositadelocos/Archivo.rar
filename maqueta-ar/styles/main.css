@@ -74,7 +74,8 @@ body {
     /* Reactivar clicks */
 }
 
-#info-btn {
+/* Botones de Acción Globales */
+.action-btn {
     background: rgba(255, 255, 255, 0.95);
     color: #111;
     border: none;
@@ -88,12 +89,16 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 20px;
 }
 
-#info-btn:active {
+.action-btn:active {
     transform: scale(0.95);
     background: #fff;
+}
+
+#info-btn {
+    /* Legacy override si es necesario, por ahora usa clase action-btn */
+    margin-bottom: 20px;
 }
 
 /* Tarjeta de Información (Modal) */
