@@ -81,7 +81,7 @@
       'mueble': {
         title: "Silla Eames",
         year: "1956",
-        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel, combinando confort y estética. <strong>¡Estructura ligera pero estable!</strong></p>"
+        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel. <strong>¡Estructura ligera pero estable!</strong></p>"
       },
       'carro': {
         title: "Automóvil Clásico",
@@ -98,12 +98,11 @@
     const lockBtn = document.getElementById('lock-btn');
     const infoCard = document.getElementById('info-card');
     const closeCardBtn = document.getElementById('close-card');
-
     const cardTitle = document.getElementById('card-title');
     const cardYear = document.getElementById('card-year');
     const cardDesc = document.getElementById('card-desc');
 
-    // Elementos UI Dinámicos para Juegos
+    // Botón de Juego Dinámico
     let gameActionBtn = document.getElementById('game-btn');
     if (!gameActionBtn) {
       gameActionBtn = document.createElement('button');
@@ -114,42 +113,10 @@
       actionBar.insertBefore(gameActionBtn, infoBtn);
     }
 
-    let gameMessage = document.getElementById('game-msg');
-    if (!gameMessage) {
-      gameMessage = document.createElement('div');
-      gameMessage.id = 'game-msg';
-      gameMessage.className = 'instruction-box hidden';
-      gameMessage.style.bottom = '100px';
-      gameMessage.style.background = 'rgba(0,0,0,0.8)';
-      document.getElementById('ui-layer').appendChild(gameMessage);
-    }
-
     // --- ESTADO GLOBAL ---
     let currentTargetId = null;
     let isLocked = false;
     let lockedClone = null;
-
-    // Variables JUEGO BROTE
-    let plantState = 0;
-    let lastTouchTime = 0;
-    let stressLevel = 0;
-    const MAX_STRESS = 3;
-    const GROWTH_STAGES = 5;
-    let broteGameActive = false;
-
-    // Variables JUEGO CARRO
-    let carGameActive = false;
-    let carPositionX = 0;
-    let obstacles = [];
-    let gameLoopId = null;
-    let score = 0;
-
-    // Variables JUEGO MUEBLE (Equilibrio)
-    let muebleGameActive = false;
-    let balanceAngle = 0; // Ángulo de caída actual
-    let balanceChaos = 0.5; // Velocidad de caída
-    let balanceInterval = null;
-    let maxBalanceAngle = 30; // Ángulo máximo antes de caer
 
     // --- FUNCIONES CORE (Bloqueo/Desbloqueo) ---
 
@@ -207,14 +174,13 @@
           lockBtn.classList.remove('hidden');
           infoBtn.classList.remove('hidden');
 
-          gameActionBtn.classList.add('hidden'); // Ocultar juegos
+          gameActionBtn.classList.add('hidden'); // Ocultar boton juegos en modo AR
 
         } else {
           // Nada visible
           actionBar.classList.add('hidden');
           scanInstruction.classList.remove('hidden');
           infoCard.classList.add('hidden');
-          gameMessage.classList.add('hidden');
         }
       } else {
         // --- MODO BLOQUEADO (LOCKED) ---
@@ -225,20 +191,20 @@
         lockBtn.style.background = "#ff4444";
         lockBtn.style.color = "white";
 
-        // Mostrar Botón de Juego según el ID
+        // Mostrar Botón de Juego según el ID y redirigir
         gameActionBtn.classList.remove('hidden');
 
         if (currentTargetId === 'brote') {
-          gameActionBtn.innerText = broteGameActive ? '❌ Salir' : '🌱 Cultivar';
-          gameActionBtn.style.background = broteGameActive ? '#ff4444' : '#4CAF50';
+          gameActionBtn.innerText = '🎮 Jugar: Hazlo Crecer';
+          gameActionBtn.style.background = '#4CAF50';
         }
         else if (currentTargetId === 'carro') {
-          gameActionBtn.innerText = carGameActive ? '❌ Salir' : '🚗 Conducir';
-          gameActionBtn.style.background = carGameActive ? '#ff4444' : '#2196F3';
+          gameActionBtn.innerText = '🎮 Jugar: Conducir';
+          gameActionBtn.style.background = '#2196F3';
         }
         else if (currentTargetId === 'mueble') {
-          gameActionBtn.innerText = muebleGameActive ? '❌ Salir' : '⚖️ Equilibrar';
-          gameActionBtn.style.background = muebleGameActive ? '#ff4444' : '#FF9800';
+          gameActionBtn.innerText = '🎮 Jugar: Equilibrar';
+          gameActionBtn.style.background = '#FF9800';
         }
         else {
           gameActionBtn.classList.add('hidden');
@@ -246,232 +212,15 @@
       }
     }
 
-    // --- PROCESADOR DE BOTÓN DE JUEGO ---
+    // --- PROCESADOR DE BOTÓN DE JUEGO (REDIRECCIÓN) ---
     gameActionBtn.addEventListener('click', () => {
-      if (currentTargetId === 'brote') toggleBroteGame();
-      else if (currentTargetId === 'carro') toggleCarGame();
-      else if (currentTargetId === 'mueble') toggleMuebleGame();
+      if (currentTargetId === 'brote') window.location.href = 'game-brote.html';
+      else if (currentTargetId === 'carro') window.location.href = 'game-carro.html';
+      else if (currentTargetId === 'mueble') window.location.href = 'game-mueble.html';
     });
-
-    // ==========================================
-    // 1. JUEGO BROTE: "Hazlo Crecer"
-    // ==========================================
-    function toggleBroteGame() {
-      broteGameActive = !broteGameActive;
-      if (broteGameActive) {
-        showMessage("Toca el brote suavemente para nutrirlo...");
-        resetPlant();
-      } else {
-        gameMessage.classList.add('hidden');
-        updatePlantVisuals(1.5);
-      }
-      updateInterface();
-    }
-
-    function handlePlantTouch() {
-      if (!broteGameActive) return;
-      const now = Date.now();
-      const delta = now - lastTouchTime;
-      lastTouchTime = now;
-
-      if (delta < 500) {
-        stressLevel++;
-        showMessage("¡Muy rápido! ¡Estrés!", "red");
-        updatePlantVisuals(1.0 + (plantState * 0.1));
-        if (stressLevel > MAX_STRESS) {
-          showMessage("🍂 Se marchitó...", "gray");
-          updatePlantVisuals(0.5);
-          setTimeout(() => { resetPlant(); showMessage("Intenta de nuevo más lento."); }, 2000);
-        }
-      } else {
-        stressLevel = Math.max(0, stressLevel - 1);
-        if (plantState < GROWTH_STAGES) {
-          plantState++;
-          const scale = 1.5 + (plantState * 0.5);
-          updatePlantVisuals(scale);
-
-          if (plantState === GROWTH_STAGES) {
-            showMessage("🌸 ¡HA FLORECIDO! 🌸", "#00ff00");
-            updatePlantVisuals(4.5);
-          } else {
-            showMessage("Creciendo...");
-          }
-        }
-      }
-    }
-
-    function resetPlant() {
-      plantState = 0; stressLevel = 0; lastTouchTime = 0;
-      updatePlantVisuals(1.5);
-    }
-
-    function updatePlantVisuals(scale) {
-      if (lockedClone) {
-        lockedClone.removeAttribute('animation');
-        lockedClone.setAttribute('animation', `property: scale; to: ${scale} ${scale} ${scale}; dur: 500; easing: easeOutElastic;`);
-      }
-    }
-
-    // ==========================================
-    // 2. JUEGO CARRO: "Conduce el Equilibrio"
-    // ==========================================
-    function toggleCarGame() {
-      carGameActive = !carGameActive;
-      if (carGameActive) {
-        showMessage("Inclina el celular 📱 para moverte");
-        startGameLoop();
-        window.addEventListener('deviceorientation', handleOrientation);
-      } else {
-        gameMessage.classList.add('hidden');
-        stopGameLoop();
-        window.removeEventListener('deviceorientation', handleOrientation);
-      }
-      updateInterface();
-    }
-
-    function handleOrientation(event) {
-      if (!carGameActive || !lockedClone) return;
-      const tilt = event.gamma;
-      if (tilt) {
-        const clampedTilt = Math.max(-30, Math.min(30, tilt));
-        // Movimiento simplificado en eje X global
-        const movement = (clampedTilt / 30) * 0.1;
-        lockedClone.object3D.translateX(movement);
-      }
-    }
-
-    function startGameLoop() {
-      score = 0;
-      gameLoopId = setInterval(spawnObstacle, 2000);
-    }
-
-    function stopGameLoop() {
-      clearInterval(gameLoopId);
-      obstacles.forEach(obs => { if (obs.parentNode) obs.parentNode.removeChild(obs); });
-      obstacles = [];
-    }
-
-    function spawnObstacle() {
-      if (!carGameActive || !lockedClone) return;
-
-      const obstacle = document.createElement('a-box');
-      const clonePos = lockedClone.object3D.position;
-      const startX = clonePos.x + (Math.random() * 2) - 1;
-
-      obstacle.setAttribute('position', `${startX} ${clonePos.y + 2} ${clonePos.z}`);
-      obstacle.setAttribute('scale', '0.3 0.3 0.3');
-      obstacle.setAttribute('color', 'red');
-      obstacle.setAttribute('material', 'opacity: 0.8');
-      sceneEl.appendChild(obstacle);
-      obstacles.push(obstacle);
-
-      let interval = setInterval(() => {
-        if (!carGameActive) { clearInterval(interval); return; }
-        obstacle.object3D.position.y -= 0.05;
-
-        if (lockedClone) {
-          const dist = obstacle.object3D.position.distanceTo(lockedClone.object3D.position);
-          if (dist < 0.5) {
-            showMessage(`💥 ¡CHOQUE! Puntos: ${score}`, "orange");
-            navigator.vibrate(200);
-            clearInterval(interval);
-            if (obstacle.parentNode) obstacle.parentNode.removeChild(obstacle);
-          }
-        }
-
-        if (obstacle.object3D.position.y < -5) {
-          clearInterval(interval);
-          if (obstacle.parentNode) obstacle.parentNode.removeChild(obstacle);
-          score++;
-          showMessage(`Puntuación: ${score}`);
-        }
-      }, 50);
-    }
-
-    // ==========================================
-    // 3. JUEGO MUEBLE: "Estabilidad Ligera"
-    // ==========================================
-    function toggleMuebleGame() {
-      muebleGameActive = !muebleGameActive;
-      if (muebleGameActive) {
-        showMessage("⚠️ ¡Se inclina! Toca RÁPIDO para equilibrar.");
-        startMuebleBalance();
-      } else {
-        stopMuebleBalance();
-        if (lockedClone) lockedClone.object3D.rotation.z = 0; // Reset rotación
-        gameMessage.classList.add('hidden');
-      }
-      updateInterface();
-    }
-
-    function startMuebleBalance() {
-      balanceAngle = 0;
-      score = 0;
-
-      // Loop de Caída ("Gravedad")
-      balanceInterval = setInterval(() => {
-        if (!muebleGameActive || !lockedClone) return;
-
-        // Aumentar ángulo (caída hacia un lado)
-        balanceAngle += balanceChaos;
-
-        // Aplicar rotación al modelo (Eje Z local suele ser side-tilt en GLTF verticales estándar, o X)
-        // Asumiremos Z world axis para "ladearse"
-        lockedClone.object3D.rotation.z = THREE.MathUtils.degToRad(balanceAngle);
-        lockedClone.object3D.rotation.x = THREE.MathUtils.degToRad(90); // Mantenerlo parado (ajuste original)
-
-        // Aumentar dificultad con el tiempo
-        balanceChaos = 0.5 + (score * 0.05);
-
-        // Chequear si se cayó
-        if (Math.abs(balanceAngle) > maxBalanceAngle) {
-          gameOverMueble();
-        }
-
-        // Sumar puntos por sobrevivir
-        score++;
-        if (score % 20 === 0) showMessage(`Estabilidad al ${Math.min(100, score)}%`);
-
-      }, 50); // 20 FPS updates
-    }
-
-    function handleMuebleTap() {
-      if (!muebleGameActive) return;
-      // Al tocar, corregimos el ángulo en la dirección opuesta a la caída
-      // Si balanceAngle es positivo, restamos.
-      const correction = 5;
-      balanceAngle -= correction;
-
-      // Feedback vibración leve
-      if (navigator.vibrate) navigator.vibrate(10);
-
-      // Limitar para no sobre-corregir demasiado al otro lado (oscilación)
-      if (balanceAngle < -5) balanceAngle = -5;
-    }
-
-    function stopMuebleBalance() {
-      clearInterval(balanceInterval);
-      balanceAngle = 0;
-    }
-
-    function gameOverMueble() {
-      stopMuebleBalance();
-      showMessage("🚫 SE CAYÓ. Diseño ligero requiere balance.", "red");
-      navigator.vibrate([100, 50, 100]);
-
-      // Animación de caída total
-      if (lockedClone) {
-        lockedClone.setAttribute('animation', 'property: rotation; to: 90 0 90; dur: 500; easing: easeInQuad');
-      }
-
-      setTimeout(() => {
-        toggleMuebleGame(); // Salir del juego automáticamente
-      }, 3000);
-    }
 
 
     // --- MANEJO DE EVENTOS ---
-
     closeCardBtn.addEventListener('click', () => {
       infoCard.classList.add('hidden');
       actionBar.classList.remove('hidden');
@@ -489,52 +238,37 @@
     });
 
     lockBtn.addEventListener('click', () => {
-      // Bloquear / Desbloquear lógica
+      isLocked = !isLocked;
       if (isLocked) {
-        isLocked = false;
-        unlockModel();
-        // Apagar juegos si estaban activos
-        if (broteGameActive) toggleBroteGame();
-        if (carGameActive) toggleCarGame();
-        if (muebleGameActive) toggleMuebleGame();
-
-      } else {
-        isLocked = true;
         lockModel();
+      } else {
+        unlockModel();
       }
       updateInterface();
     });
 
-    // --- INPUT UNIFICADO (TOQUES / MOUSE) ---
-    // Maneja tanto la rotación (cuando no hay juego) como los inputs de juegos
+    // --- INTERACCION ROTACIÓN (Sólo cuando está bloqueado) ---
+    let isDragging = false;
+    let previousMouseX = 0;
+    let previousMouseY = 0;
 
     document.addEventListener('touchstart', onInputStart, { passive: false });
     document.addEventListener('mousedown', onInputStart);
 
     function onInputStart(e) {
-      // 1. Input Juegos
-      if (broteGameActive) { handlePlantTouch(); return; }
-      if (muebleGameActive) { handleMuebleTap(); return; } // Nuevo Input Mueble
-
-      // 2. Input Rotación (Solo si bloqueado y NO jugando Carro/Mueble)
-      if (carGameActive) return;
-
       if (!isLocked || !lockedClone) return;
       isDragging = true;
-      // (Logica de drag start)
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       previousMouseX = clientX;
       previousMouseY = clientY;
     }
 
-    // Drag Move
     document.addEventListener('touchmove', onInputMove, { passive: false });
     document.addEventListener('mousemove', onInputMove);
 
     function onInputMove(e) {
       if (!isDragging || !isLocked || !lockedClone) return;
-      if (broteGameActive || carGameActive || muebleGameActive) return; // No rotar si jugando
 
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -552,13 +286,8 @@
       previousMouseY = clientY;
     }
 
-    // Drag End
     document.addEventListener('touchend', () => isDragging = false);
     document.addEventListener('mouseup', () => isDragging = false);
-
-    let isDragging = false;
-    let previousMouseX = 0;
-    let previousMouseY = 0;
 
 
     // --- MINDAR EVENTS ---
