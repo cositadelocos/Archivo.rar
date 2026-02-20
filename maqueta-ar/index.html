@@ -71,20 +71,17 @@
   </a-scene>
 
   <script>
+    // --- DATOS DE PIEZAS ---
     const piecesData = {
       'brote': {
         title: "Brote",
         year: "Proyecto",
-        desc: `
-            <p>Surge como respuesta a la tensión entre las raíces del eucalipto pomarroso y la rigidez del pavimento. A través de un sistema modular inspirado en patrones rizomáticos, protege, oxigena y revitaliza el suelo sin limitar el crecimiento vegetal.</p>
-            <strong>Concepto</strong>
-            <p>El proyecto nace de la tensión entre las raíces del eucalipto y la rigidez del pavimento urbano. Se plantea un sistema modular que transforma el conflicto en una oportunidad de coexistencia.</p>
-          `
+        desc: `<p>Surge como respuesta a la tensión entre las raíces del eucalipto pomarroso y la rigidez del pavimento. Sistema modular inspirado en patrones rizomáticos.</p>`
       },
       'mueble': {
         title: "Silla Eames",
         year: "1956",
-        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel, combinando confort y estética.</p>"
+        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel, combinando confort y estética. <strong>¡Estructura ligera pero estable!</strong></p>"
       },
       'carro': {
         title: "Automóvil Clásico",
@@ -93,34 +90,7 @@
       }
     };
 
-    const sceneEl = document.querySelector('a-scene');
-    const scanInstruction = document.getElementById('scan-instruction');
-    const actionBar = document.getElementById('action-bar');
-    const infoBtn = document.getElementById('info-btn');
-    const lockBtn = document.getElementById('lock-btn');
-    const infoCard = document.getElementById('info-card');
-    const closeCardBtn = document.getElementById('close-card');
-
-    // Estado Global
-    let currentTargetId = null;
-    let isLocked = false;
-    let lockedClone = null;
-
-    // Variables Brote (Hazlo crecer)
-    let plantState = 0;
-    let lastTouchTime = 0;
-    let stressLevel = 0;
-    const MAX_STRESS = 3;
-    const GROWTH_STAGES = 5;
-
-    // Variables Carro (Conduce el equilibrio)
-    let carGameActive = false;
-    let carPositionX = 0;
-    let obstacles = [];
-    let gameLoopId = null;
-    let score = 0;
-
-    // Referencias UI
+    // --- REFERENCIAS UI ---
     const sceneEl = document.querySelector('a-scene');
     const scanInstruction = document.getElementById('scan-instruction');
     const actionBar = document.getElementById('action-bar');
@@ -133,237 +103,60 @@
     const cardYear = document.getElementById('card-year');
     const cardDesc = document.getElementById('card-desc');
 
-    // Crear elementos UI para Juegos
-    const gameActionBtn = document.createElement('button');
-    gameActionBtn.id = 'game-btn';
-    gameActionBtn.className = 'action-btn hidden';
-    gameActionBtn.style.background = '#4CAF50';
-    gameActionBtn.style.color = 'white';
-    actionBar.appendChild(gameActionBtn);
+    // Elementos UI Dinámicos para Juegos
+    let gameActionBtn = document.getElementById('game-btn');
+    if (!gameActionBtn) {
+      gameActionBtn = document.createElement('button');
+      gameActionBtn.id = 'game-btn';
+      gameActionBtn.className = 'action-btn hidden';
+      gameActionBtn.style.color = 'white';
+      // Insertar antes del botón de info
+      actionBar.insertBefore(gameActionBtn, infoBtn);
+    }
 
-    const gameMessage = document.createElement('div');
-    gameMessage.id = 'game-msg';
-    gameMessage.className = 'instruction-box hidden';
-    gameMessage.style.bottom = '100px';
-    gameMessage.style.background = 'rgba(0,0,0,0.8)';
-    document.getElementById('ui-layer').appendChild(gameMessage);
+    let gameMessage = document.getElementById('game-msg');
+    if (!gameMessage) {
+      gameMessage = document.createElement('div');
+      gameMessage.id = 'game-msg';
+      gameMessage.className = 'instruction-box hidden';
+      gameMessage.style.bottom = '100px';
+      gameMessage.style.background = 'rgba(0,0,0,0.8)';
+      document.getElementById('ui-layer').appendChild(gameMessage);
+    }
 
-    // --- LÓGICA DE JUEGOS ---
+    // --- ESTADO GLOBAL ---
+    let currentTargetId = null;
+    let isLocked = false;
+    let lockedClone = null;
 
-    gameActionBtn.addEventListener('click', () => {
-      if (currentTargetId === 'brote') toggleBroteGame();
-      if (currentTargetId === 'carro') toggleCarGame();
-    });
-
-    // 1. JUEGO BROTE
+    // Variables JUEGO BROTE
+    let plantState = 0;
+    let lastTouchTime = 0;
+    let stressLevel = 0;
+    const MAX_STRESS = 3;
+    const GROWTH_STAGES = 5;
     let broteGameActive = false;
 
-    function toggleBroteGame() {
-      broteGameActive = !broteGameActive;
-      if (broteGameActive) {
-        setupGameUI('❌ Salir', '#ff4444', "Toca suavemente para nutrir...");
-        resetPlant();
-      } else {
-        exitGameUI('🌱 Cultivar', '#4CAF50');
-        updatePlantVisuals(1.5, '#FFFFFF'); // Reset visual
-      }
-    }
+    // Variables JUEGO CARRO
+    let carGameActive = false;
+    let carPositionX = 0;
+    let obstacles = [];
+    let gameLoopId = null;
+    let score = 0;
 
-    function handlePlantTouch() {
-      if (!broteGameActive) return;
-      const now = Date.now();
-      const delta = now - lastTouchTime;
-      lastTouchTime = now;
+    // Variables JUEGO MUEBLE (Equilibrio)
+    let muebleGameActive = false;
+    let balanceAngle = 0; // Ángulo de caída actual
+    let balanceChaos = 0.5; // Velocidad de caída
+    let balanceInterval = null;
+    let maxBalanceAngle = 30; // Ángulo máximo antes de caer
 
-      if (delta < 500) {
-        stressLevel++;
-        showMessage("¡Muy rápido! ¡Estrés!", "red");
-        updatePlantVisuals(1.0 + (plantState * 0.1), '#ffaaaa');
-        if (stressLevel > MAX_STRESS) {
-          showMessage("🍂 Se marchitó...", "gray");
-          updatePlantVisuals(0.5, '#555555');
-          setTimeout(() => { resetPlant(); showMessage("Intenta de nuevo más lento."); }, 2000);
-        }
-      } else {
-        stressLevel = Math.max(0, stressLevel - 1);
-        if (plantState < GROWTH_STAGES) {
-          plantState++;
-          const scale = 1.5 + (plantState * 0.5);
-          updatePlantVisuals(scale, '#aaffaa');
-
-          if (plantState === GROWTH_STAGES) {
-            showMessage("🌸 ¡HA FLORECIDO! 🌸", "#00ff00");
-            updatePlantVisuals(4.5, '#ffff00');
-          } else {
-            showMessage("Creciendo...");
-          }
-        }
-      }
-    }
-
-    function resetPlant() {
-      plantState = 0; stressLevel = 0; lastTouchTime = 0;
-      updatePlantVisuals(1.5, '#FFFFFF');
-    }
-
-    function updatePlantVisuals(scale, colorRef) { // ColorRef no usado por limitación GLB, solo escala
-      const target = document.querySelector('[data-id="brote"]');
-      const model = target ? target.querySelector('a-gltf-model') : null;
-      if (model) {
-        model.removeAttribute('animation');
-        model.setAttribute('animation', `property: scale; to: ${scale} ${scale} ${scale}; dur: 500; easing: easeOutElastic;`);
-      }
-    }
-
-    // 2. JUEGO CARRO (Conduce el equilibrio)
-    function toggleCarGame() {
-      carGameActive = !carGameActive;
-      if (carGameActive) {
-        setupGameUI('❌ Salir', '#ff4444', "Inclina el celular 📱 para moverte");
-        startGameLoop();
-
-        // Activar listener de orientación
-        window.addEventListener('deviceorientation', handleOrientation);
-      } else {
-        exitGameUI('🚗 Conducir', '#2196F3');
-        stopGameLoop();
-        window.removeEventListener('deviceorientation', handleOrientation);
-
-        // Reset Car Position
-        const car = document.querySelector('[data-id="carro"] a-gltf-model');
-        if (car) car.object3D.position.x = 0;
-      }
-    }
-
-    function handleOrientation(event) {
-      if (!carGameActive) return;
-      // Gamma es la inclinación izquierda-derecha (-90 a 90)
-      const tilt = event.gamma;
-      if (tilt) {
-        // Mapear tilt (-30 a 30) a posición X (-1 a 1)
-        const clampedTilt = Math.max(-30, Math.min(30, tilt));
-        carPositionX = (clampedTilt / 30) * 1.5; // Rango de movimiento 1.5 metros
-
-        const car = document.querySelector('[data-id="carro"] a-gltf-model');
-        // Actualizamos posición, manteniendo Y y Z originales (asumiendo que están en 0)
-        // La rotación original del carro ya hace que 'X' sea lateral
-        if (car) car.object3D.position.x = carPositionX;
-      }
-    }
-
-    function startGameLoop() {
-      score = 0;
-      gameLoopId = setInterval(() => {
-        spawnObstacle();
-      }, 2000); // Obstáculo cada 2 seg
-    }
-
-    function stopGameLoop() {
-      clearInterval(gameLoopId);
-      // Limpiar obstáculos
-      obstacles.forEach(obs => obs.parentNode.removeChild(obs));
-      obstacles = [];
-    }
-
-    function spawnObstacle() {
-      if (!carGameActive || !document.querySelector('[data-id="carro"]').object3D.visible) return;
-
-      const scene = document.querySelector('a-scene');
-      const obstacle = document.createElement('a-box');
-
-      // Posición aleatoria en X, "lejos" en Z (o arriba en Y dependiendo de orientación target)
-      // MindAR Image Targets: Z sale del plano. Y es arriba.
-      // Si el carro está rotado, los ejes cambian.
-      // Asumiremos que el carro se mueve en X del target.
-      // Obstáculos vienen "bajando" (desde Y positivo hacia 0) o desde el fondo.
-      // Probemos: vienen desde "arriba" (Y=2) hacia el carro (Y=0)
-
-      const startX = (Math.random() * 3) - 1.5; // -1.5 a 1.5
-      obstacle.setAttribute('position', `${startX} 2 0`);
-      obstacle.setAttribute('scale', '0.3 0.3 0.3');
-      obstacle.setAttribute('color', 'red');
-      obstacle.setAttribute('material', 'opacity: 0.8');
-
-      // Attach to target container so it moves with marker
-      const target = document.querySelector('[data-id="carro"]');
-      target.appendChild(obstacle);
-      obstacles.push(obstacle);
-
-      // Animar caída
-      let pos = 2;
-      const fallInterval = setInterval(() => {
-        if (!carGameActive) { clearInterval(fallInterval); return; }
-        pos -= 0.05;
-        obstacle.object3D.position.y = pos;
-
-        // Detección Colisión
-        if (pos < 0.2 && pos > -0.2) { // Cerca de la altura del carro
-          if (Math.abs(obstacle.object3D.position.x - carPositionX) < 0.4) {
-            // CHOQUE
-            showMessage("💥 ¡CHOQUE! " + getMaterialMessage(), "orange");
-            navigator.vibrate(200);
-            resetCarGame();
-            clearInterval(fallInterval);
-            target.removeChild(obstacle);
-          }
-        }
-
-        if (pos < -1) { // Pasó de largo
-          clearInterval(fallInterval);
-          if (obstacle.parentNode) obstacle.parentNode.removeChild(obstacle);
-          score++;
-          showMessage(`Puntuación: ${score}`);
-        }
-      }, 50);
-    }
-
-    function resetCarGame() {
-      score = 0;
-      // Efecto visual simple
-      const car = document.querySelector('[data-id="carro"] a-gltf-model');
-      if (car) {
-        car.setAttribute('animation', 'property: rotation; to: 70 -5 360; dur: 500; easing: linear');
-        setTimeout(() => {
-          car.setAttribute('rotation', '70 -5 0'); // Restaurar
-          car.removeAttribute('animation');
-        }, 500);
-      }
-    }
-
-    function getMaterialMessage() {
-      const msgs = ["El metal resiste.", "La pintura se rayó.", "Carrocería sólida."];
-      return msgs[Math.floor(Math.random() * msgs.length)];
-    }
-
-    // --- UTILS UI ---
-    function setupGameUI(btnText, btnColor, instructions) {
-      gameActionBtn.innerText = btnText;
-      gameActionBtn.style.background = btnColor;
-      showMessage(instructions);
-      infoBtn.classList.add('hidden');
-      lockBtn.classList.add('hidden');
-    }
-
-    function exitGameUI(btnText, btnColor) {
-      gameActionBtn.innerText = btnText;
-      gameActionBtn.style.background = btnColor;
-      gameMessage.classList.add('hidden');
-      infoBtn.classList.remove('hidden');
-      lockBtn.classList.remove('hidden');
-    }
-
-    function showMessage(text, color = "white") {
-      gameMessage.innerText = text;
-      gameMessage.style.color = color;
-      gameMessage.classList.remove('hidden');
-    }
-
-    // --- LOCK & GHOST LOGIC (Mantenida) ---
+    // --- FUNCIONES CORE (Bloqueo/Desbloqueo) ---
 
     function lockModel() {
       if (!currentTargetId) return;
       const target = document.querySelector(`[data-id="${currentTargetId}"]`);
-      const model = target.querySelector('a-gltf-model');
+      const model = target ? target.querySelector('a-gltf-model') : null;
       if (!model) return;
 
       lockedClone = model.cloneNode(true);
@@ -399,70 +192,286 @@
       }
     }
 
-    // --- INTERACCION ROTACIÓN (Mantenida) ---
-    // (Código de touch/mouse events para isLocked va aquí)
-    let isDragging = false;
-    let previousMouseX = 0;
-    let previousMouseY = 0;
+    // --- GESTIÓN DE INTERFAZ UNIFICADA ---
+    function updateInterface() {
+      if (!isLocked) {
+        // --- MODO ESCANEO / AR LIVE ---
+        if (currentTargetId) {
+          // Target visible
+          actionBar.classList.remove('hidden');
+          scanInstruction.classList.add('hidden');
 
-    document.addEventListener('touchstart', onTouchStart, { passive: false });
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend', () => isDragging = false);
+          lockBtn.textContent = "🔓 Bloquear";
+          lockBtn.style.background = "rgba(255, 255, 255, 0.95)";
+          lockBtn.style.color = "#111";
+          lockBtn.classList.remove('hidden');
+          infoBtn.classList.remove('hidden');
 
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', () => isDragging = false);
+          gameActionBtn.classList.add('hidden'); // Ocultar juegos
 
-    function onTouchStart(e) {
-      if (broteGameActive) { handlePlantTouch(); return; } // Input Juego Brote
-      if (carGameActive) return; // No rotar si estamos jugando carro
+        } else {
+          // Nada visible
+          actionBar.classList.add('hidden');
+          scanInstruction.classList.remove('hidden');
+          infoCard.classList.add('hidden');
+          gameMessage.classList.add('hidden');
+        }
+      } else {
+        // --- MODO BLOQUEADO (LOCKED) ---
+        actionBar.classList.remove('hidden');
+        scanInstruction.classList.add('hidden');
 
-      if (!isLocked || !lockedClone) return;
-      isDragging = true;
-      previousMouseX = e.touches[0].clientX;
-      previousMouseY = e.touches[0].clientY;
+        lockBtn.textContent = "🔒 Desbloquear";
+        lockBtn.style.background = "#ff4444";
+        lockBtn.style.color = "white";
+
+        // Mostrar Botón de Juego según el ID
+        gameActionBtn.classList.remove('hidden');
+
+        if (currentTargetId === 'brote') {
+          gameActionBtn.innerText = broteGameActive ? '❌ Salir' : '🌱 Cultivar';
+          gameActionBtn.style.background = broteGameActive ? '#ff4444' : '#4CAF50';
+        }
+        else if (currentTargetId === 'carro') {
+          gameActionBtn.innerText = carGameActive ? '❌ Salir' : '🚗 Conducir';
+          gameActionBtn.style.background = carGameActive ? '#ff4444' : '#2196F3';
+        }
+        else if (currentTargetId === 'mueble') {
+          gameActionBtn.innerText = muebleGameActive ? '❌ Salir' : '⚖️ Equilibrar';
+          gameActionBtn.style.background = muebleGameActive ? '#ff4444' : '#FF9800';
+        }
+        else {
+          gameActionBtn.classList.add('hidden');
+        }
+      }
     }
 
-    function onTouchMove(e) {
-      if (!isDragging || !isLocked || !lockedClone) return;
-      const deltaX = e.touches[0].clientX - previousMouseX;
-      const deltaY = e.touches[0].clientY - previousMouseY;
+    // --- PROCESADOR DE BOTÓN DE JUEGO ---
+    gameActionBtn.addEventListener('click', () => {
+      if (currentTargetId === 'brote') toggleBroteGame();
+      else if (currentTargetId === 'carro') toggleCarGame();
+      else if (currentTargetId === 'mueble') toggleMuebleGame();
+    });
 
-      rotateModel(deltaX, deltaY);
-
-      previousMouseX = e.touches[0].clientX;
-      previousMouseY = e.touches[0].clientY;
+    // ==========================================
+    // 1. JUEGO BROTE: "Hazlo Crecer"
+    // ==========================================
+    function toggleBroteGame() {
+      broteGameActive = !broteGameActive;
+      if (broteGameActive) {
+        showMessage("Toca el brote suavemente para nutrirlo...");
+        resetPlant();
+      } else {
+        gameMessage.classList.add('hidden');
+        updatePlantVisuals(1.5);
+      }
+      updateInterface();
     }
 
-    // Mouse equivalents...
-    function onMouseDown(e) {
-      if (broteGameActive) { handlePlantTouch(); return; }
-      if (carGameActive) return;
+    function handlePlantTouch() {
+      if (!broteGameActive) return;
+      const now = Date.now();
+      const delta = now - lastTouchTime;
+      lastTouchTime = now;
 
-      if (!isLocked || !lockedClone) return;
-      isDragging = true;
-      previousMouseX = e.clientX;
-      previousMouseY = e.clientY;
+      if (delta < 500) {
+        stressLevel++;
+        showMessage("¡Muy rápido! ¡Estrés!", "red");
+        updatePlantVisuals(1.0 + (plantState * 0.1));
+        if (stressLevel > MAX_STRESS) {
+          showMessage("🍂 Se marchitó...", "gray");
+          updatePlantVisuals(0.5);
+          setTimeout(() => { resetPlant(); showMessage("Intenta de nuevo más lento."); }, 2000);
+        }
+      } else {
+        stressLevel = Math.max(0, stressLevel - 1);
+        if (plantState < GROWTH_STAGES) {
+          plantState++;
+          const scale = 1.5 + (plantState * 0.5);
+          updatePlantVisuals(scale);
+
+          if (plantState === GROWTH_STAGES) {
+            showMessage("🌸 ¡HA FLORECIDO! 🌸", "#00ff00");
+            updatePlantVisuals(4.5);
+          } else {
+            showMessage("Creciendo...");
+          }
+        }
+      }
     }
 
-    function onMouseMove(e) {
-      if (!isDragging || !isLocked || !lockedClone) return;
-      const deltaX = e.clientX - previousMouseX;
-      const deltaY = e.clientY - previousMouseY;
-      rotateModel(deltaX, deltaY);
-      previousMouseX = e.clientX;
-      previousMouseY = e.clientY;
+    function resetPlant() {
+      plantState = 0; stressLevel = 0; lastTouchTime = 0;
+      updatePlantVisuals(1.5);
     }
 
-    function rotateModel(deltaX, deltaY) {
-      const speed = 0.01;
-      const yAxis = new THREE.Vector3(0, 1, 0);
-      const xAxis = new THREE.Vector3(1, 0, 0);
-      lockedClone.object3D.rotateOnWorldAxis(yAxis, deltaX * speed);
-      lockedClone.object3D.rotateOnWorldAxis(xAxis, deltaY * speed);
+    function updatePlantVisuals(scale) {
+      if (lockedClone) {
+        lockedClone.removeAttribute('animation');
+        lockedClone.setAttribute('animation', `property: scale; to: ${scale} ${scale} ${scale}; dur: 500; easing: easeOutElastic;`);
+      }
     }
 
-    // --- UI EVENTS ---
+    // ==========================================
+    // 2. JUEGO CARRO: "Conduce el Equilibrio"
+    // ==========================================
+    function toggleCarGame() {
+      carGameActive = !carGameActive;
+      if (carGameActive) {
+        showMessage("Inclina el celular 📱 para moverte");
+        startGameLoop();
+        window.addEventListener('deviceorientation', handleOrientation);
+      } else {
+        gameMessage.classList.add('hidden');
+        stopGameLoop();
+        window.removeEventListener('deviceorientation', handleOrientation);
+      }
+      updateInterface();
+    }
+
+    function handleOrientation(event) {
+      if (!carGameActive || !lockedClone) return;
+      const tilt = event.gamma;
+      if (tilt) {
+        const clampedTilt = Math.max(-30, Math.min(30, tilt));
+        // Movimiento simplificado en eje X global
+        const movement = (clampedTilt / 30) * 0.1;
+        lockedClone.object3D.translateX(movement);
+      }
+    }
+
+    function startGameLoop() {
+      score = 0;
+      gameLoopId = setInterval(spawnObstacle, 2000);
+    }
+
+    function stopGameLoop() {
+      clearInterval(gameLoopId);
+      obstacles.forEach(obs => { if (obs.parentNode) obs.parentNode.removeChild(obs); });
+      obstacles = [];
+    }
+
+    function spawnObstacle() {
+      if (!carGameActive || !lockedClone) return;
+
+      const obstacle = document.createElement('a-box');
+      const clonePos = lockedClone.object3D.position;
+      const startX = clonePos.x + (Math.random() * 2) - 1;
+
+      obstacle.setAttribute('position', `${startX} ${clonePos.y + 2} ${clonePos.z}`);
+      obstacle.setAttribute('scale', '0.3 0.3 0.3');
+      obstacle.setAttribute('color', 'red');
+      obstacle.setAttribute('material', 'opacity: 0.8');
+      sceneEl.appendChild(obstacle);
+      obstacles.push(obstacle);
+
+      let interval = setInterval(() => {
+        if (!carGameActive) { clearInterval(interval); return; }
+        obstacle.object3D.position.y -= 0.05;
+
+        if (lockedClone) {
+          const dist = obstacle.object3D.position.distanceTo(lockedClone.object3D.position);
+          if (dist < 0.5) {
+            showMessage(`💥 ¡CHOQUE! Puntos: ${score}`, "orange");
+            navigator.vibrate(200);
+            clearInterval(interval);
+            if (obstacle.parentNode) obstacle.parentNode.removeChild(obstacle);
+          }
+        }
+
+        if (obstacle.object3D.position.y < -5) {
+          clearInterval(interval);
+          if (obstacle.parentNode) obstacle.parentNode.removeChild(obstacle);
+          score++;
+          showMessage(`Puntuación: ${score}`);
+        }
+      }, 50);
+    }
+
+    // ==========================================
+    // 3. JUEGO MUEBLE: "Estabilidad Ligera"
+    // ==========================================
+    function toggleMuebleGame() {
+      muebleGameActive = !muebleGameActive;
+      if (muebleGameActive) {
+        showMessage("⚠️ ¡Se inclina! Toca RÁPIDO para equilibrar.");
+        startMuebleBalance();
+      } else {
+        stopMuebleBalance();
+        if (lockedClone) lockedClone.object3D.rotation.z = 0; // Reset rotación
+        gameMessage.classList.add('hidden');
+      }
+      updateInterface();
+    }
+
+    function startMuebleBalance() {
+      balanceAngle = 0;
+      score = 0;
+
+      // Loop de Caída ("Gravedad")
+      balanceInterval = setInterval(() => {
+        if (!muebleGameActive || !lockedClone) return;
+
+        // Aumentar ángulo (caída hacia un lado)
+        balanceAngle += balanceChaos;
+
+        // Aplicar rotación al modelo (Eje Z local suele ser side-tilt en GLTF verticales estándar, o X)
+        // Asumiremos Z world axis para "ladearse"
+        lockedClone.object3D.rotation.z = THREE.MathUtils.degToRad(balanceAngle);
+        lockedClone.object3D.rotation.x = THREE.MathUtils.degToRad(90); // Mantenerlo parado (ajuste original)
+
+        // Aumentar dificultad con el tiempo
+        balanceChaos = 0.5 + (score * 0.05);
+
+        // Chequear si se cayó
+        if (Math.abs(balanceAngle) > maxBalanceAngle) {
+          gameOverMueble();
+        }
+
+        // Sumar puntos por sobrevivir
+        score++;
+        if (score % 20 === 0) showMessage(`Estabilidad al ${Math.min(100, score)}%`);
+
+      }, 50); // 20 FPS updates
+    }
+
+    function handleMuebleTap() {
+      if (!muebleGameActive) return;
+      // Al tocar, corregimos el ángulo en la dirección opuesta a la caída
+      // Si balanceAngle es positivo, restamos.
+      const correction = 5;
+      balanceAngle -= correction;
+
+      // Feedback vibración leve
+      if (navigator.vibrate) navigator.vibrate(10);
+
+      // Limitar para no sobre-corregir demasiado al otro lado (oscilación)
+      if (balanceAngle < -5) balanceAngle = -5;
+    }
+
+    function stopMuebleBalance() {
+      clearInterval(balanceInterval);
+      balanceAngle = 0;
+    }
+
+    function gameOverMueble() {
+      stopMuebleBalance();
+      showMessage("🚫 SE CAYÓ. Diseño ligero requiere balance.", "red");
+      navigator.vibrate([100, 50, 100]);
+
+      // Animación de caída total
+      if (lockedClone) {
+        lockedClone.setAttribute('animation', 'property: rotation; to: 90 0 90; dur: 500; easing: easeInQuad');
+      }
+
+      setTimeout(() => {
+        toggleMuebleGame(); // Salir del juego automáticamente
+      }, 3000);
+    }
+
+
+    // --- MANEJO DE EVENTOS ---
+
     closeCardBtn.addEventListener('click', () => {
       infoCard.classList.add('hidden');
       actionBar.classList.remove('hidden');
@@ -480,88 +489,103 @@
     });
 
     lockBtn.addEventListener('click', () => {
-      // No permitir bloquear si estamos en un juego
-      if (broteGameActive || carGameActive) return;
-
-      isLocked = !isLocked;
+      // Bloquear / Desbloquear lógica
       if (isLocked) {
-        lockModel();
-        lockBtn.textContent = "🔒 Desbloquear";
-        lockBtn.style.background = "#ff4444";
-        lockBtn.style.color = "white";
-        scanInstruction.classList.add('hidden');
-
-        // Ocultar botón de juego al bloquear
-        gameActionBtn.classList.add('hidden');
-      } else {
+        isLocked = false;
         unlockModel();
-        lockBtn.textContent = "🔓 Bloquear";
-        lockBtn.style.background = "rgba(255, 255, 255, 0.95)";
-        lockBtn.style.color = "#111";
+        // Apagar juegos si estaban activos
+        if (broteGameActive) toggleBroteGame();
+        if (carGameActive) toggleCarGame();
+        if (muebleGameActive) toggleMuebleGame();
 
-        // Restaurar botón de juego si corresponde
-        if (currentTargetId === 'brote' || currentTargetId === 'carro')
-          gameActionBtn.classList.remove('hidden');
-
-        if (currentTargetId && !document.querySelector(`[data-id="${currentTargetId}"]`).object3D.visible) {
-          // target perdido visualmente
-          // ...
-        }
+      } else {
+        isLocked = true;
+        lockModel();
       }
+      updateInterface();
     });
+
+    // --- INPUT UNIFICADO (TOQUES / MOUSE) ---
+    // Maneja tanto la rotación (cuando no hay juego) como los inputs de juegos
+
+    document.addEventListener('touchstart', onInputStart, { passive: false });
+    document.addEventListener('mousedown', onInputStart);
+
+    function onInputStart(e) {
+      // 1. Input Juegos
+      if (broteGameActive) { handlePlantTouch(); return; }
+      if (muebleGameActive) { handleMuebleTap(); return; } // Nuevo Input Mueble
+
+      // 2. Input Rotación (Solo si bloqueado y NO jugando Carro/Mueble)
+      if (carGameActive) return;
+
+      if (!isLocked || !lockedClone) return;
+      isDragging = true;
+      // (Logica de drag start)
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      previousMouseX = clientX;
+      previousMouseY = clientY;
+    }
+
+    // Drag Move
+    document.addEventListener('touchmove', onInputMove, { passive: false });
+    document.addEventListener('mousemove', onInputMove);
+
+    function onInputMove(e) {
+      if (!isDragging || !isLocked || !lockedClone) return;
+      if (broteGameActive || carGameActive || muebleGameActive) return; // No rotar si jugando
+
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = clientX - previousMouseX;
+      const deltaY = clientY - previousMouseY;
+
+      const speed = 0.01;
+      const yAxis = new THREE.Vector3(0, 1, 0);
+      const xAxis = new THREE.Vector3(1, 0, 0);
+      lockedClone.object3D.rotateOnWorldAxis(yAxis, deltaX * speed);
+      lockedClone.object3D.rotateOnWorldAxis(xAxis, deltaY * speed);
+
+      previousMouseX = clientX;
+      previousMouseY = clientY;
+    }
+
+    // Drag End
+    document.addEventListener('touchend', () => isDragging = false);
+    document.addEventListener('mouseup', () => isDragging = false);
+
+    let isDragging = false;
+    let previousMouseX = 0;
+    let previousMouseY = 0;
+
 
     // --- MINDAR EVENTS ---
     const targets = document.querySelectorAll('[mindar-image-target]');
 
     targets.forEach(target => {
-      target.addEventListener("targetFound", event => {
+      target.addEventListener("targetFound", () => {
         if (isLocked) return;
-
-        console.log("Found:", target.dataset.id);
         currentTargetId = target.dataset.id;
-
         const model = target.querySelector('a-gltf-model');
         if (model) model.object3D.visible = true;
-
-        scanInstruction.classList.add('hidden');
-        actionBar.classList.remove('hidden');
-
-        // CONFIGURAR BOTON DE JUEGO
-        if (currentTargetId === 'brote') {
-          gameActionBtn.innerText = '🌱 Cultivar';
-          gameActionBtn.style.background = '#4CAF50';
-          gameActionBtn.classList.remove('hidden');
-        } else if (currentTargetId === 'carro') {
-          gameActionBtn.innerText = '🚗 Conducir';
-          gameActionBtn.style.background = '#2196F3'; // Azul
-          gameActionBtn.classList.remove('hidden');
-        } else {
-          gameActionBtn.classList.add('hidden');
-        }
+        updateInterface();
       });
 
-      target.addEventListener("targetLost", event => {
+      target.addEventListener("targetLost", () => {
         if (isLocked) return;
-
         setTimeout(() => {
           if (!isLocked && currentTargetId === target.dataset.id) {
             if (!target.object3D.visible) {
-              scanInstruction.classList.remove('hidden');
-              actionBar.classList.add('hidden');
-              infoCard.classList.add('hidden');
-              gameActionBtn.classList.add('hidden');
-              gameMessage.classList.add('hidden');
-
-              // Si perdemos el target, pausar/resetear juegos
-              if (broteGameActive) toggleBroteGame();
-              if (carGameActive) toggleCarGame();
-
               currentTargetId = null;
+              updateInterface();
             }
           }
         }, 300);
       });
     });
+
   </script>
 </body>
 
