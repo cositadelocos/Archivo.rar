@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Interacción: Graffiti Wall</title>
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            touch-action: none;
+        }
+
+        /* Video de fondo (Cámara TRASERA) */
+        #camera-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* Canvas de dibujo */
+        #draw-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+
+        /* Canvas oculto para captura */
+        #capture-canvas {
+            display: none;
+        }
+
+        /* UI */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+
+        #capture-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: 3px solid white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            transition: transform 0.15s, background 0.15s;
+        }
+
+        #capture-btn:active {
+            transform: scale(0.9);
+            background: #4CAF50;
+            color: white;
+        }
+
+        .tools-panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            margin-bottom: 20px;
+            border-radius: 20px;
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+
+        .color-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .color-btn.active {
+            transform: scale(1.2);
+            border-color: yellow;
+        }
+
+        #clear-btn {
+            background: white;
+            color: black;
+            border: none;
+            font-weight: bold;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        #instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.5rem;
+            text-shadow: 0 2px 4px black;
+            pointer-events: none;
+            opacity: 0.8;
+            animation: fadeOut 3s forwards 2s;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+            }
+        }
+
+        /* Toast de confirmación de guardado */
+        #save-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0, 0, 0, 0.85);
+            color: #4CAF50;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            z-index: 100;
+            pointer-events: none;
+            transition: transform 0.3s ease;
+            border: 2px solid #4CAF50;
+        }
+
+        #save-toast.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Flash de cámara */
+        #flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Video Feed (Cámara Trasera) -->
+    <video id="camera-feed" autoplay playsinline muted></video>
+
+    <!-- Canvas de Dibujo -->
+    <canvas id="draw-canvas"></canvas>
+
+    <!-- Canvas oculto para captura combinada -->
+    <canvas id="capture-canvas"></canvas>
+
+    <!-- Flash effect -->
+    <div id="flash"></div>
+
+    <!-- Toast -->
+    <div id="save-toast">📸 ¡Guardado!</div>
+
+    <!-- UI -->
+    <div id="ui-layer">
+        <div class="header">
+            <a href="index.html" class="back-btn">⬅ Volver</a>
+            <button id="capture-btn">📸 Capturar</button>
+        </div>
+
+        <div id="instruction">👆 ¡Raya el muro con tu dedo!</div>
+
+        <div class="tools-panel">
+            <div class="color-btn active" style="background:#FF0055" data-color="#FF0055"></div>
+            <div class="color-btn" style="background:#00AAFF" data-color="#00AAFF"></div>
+            <div class="color-btn" style="background:#55FF00" data-color="#55FF00"></div>
+            <div class="color-btn" style="background:#FFDD00" data-color="#FFDD00"></div>
+            <div class="color-btn" style="background:#FFFFFF" data-color="#FFFFFF"></div>
+            <button id="clear-btn">🗑 BORRAR</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera-feed');
+        const canvas = document.getElementById('draw-canvas');
+        const ctx = canvas.getContext('2d');
+        const captureCanvas = document.getElementById('capture-canvas');
+        const captureCtx = captureCanvas.getContext('2d');
+        const colors = document.querySelectorAll('.color-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const captureBtn = document.getElementById('capture-btn');
+        const flash = document.getElementById('flash');
+        const saveToast = document.getElementById('save-toast');
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentColor = '#FF0055';
+        let brushSize = 15;
+
+        // ==========================================
+        // 1. INICIAR CÁMARA TRASERA
+        // ==========================================
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }  // CÁMARA TRASERA
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error cámara:", err);
+                // Fallback: intentar cualquier cámara
+                try {
+                    const fallback = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = fallback;
+                } catch (e) {
+                    alert("No se pudo acceder a la cámara.");
+                }
+            }
+        }
+        startCamera();
+
+        // ==========================================
+        // 2. AJUSTAR CANVAS AL TAMAÑO DE PANTALLA
+        // ==========================================
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = currentColor;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // ==========================================
+        // 3. LÓGICA DE DIBUJO
+        // ==========================================
+        function startDraw(e) {
+            isDrawing = true;
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            [lastX, lastY] = [x, y];
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = brushSize;
+            ctx.shadowColor = currentColor;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            // Efecto goteo graffiti
+            if (Math.random() > 0.95) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + Math.random() * 20);
+                ctx.lineWidth = brushSize / 2;
+                ctx.stroke();
+            }
+
+            [lastX, lastY] = [x, y];
+        }
+
+        function stopDraw() {
+            isDrawing = false;
+        }
+
+        // Touch
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDraw);
+        // Mouse
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+
+        // ==========================================
+        // 4. HERRAMIENTAS UI (Colores)
+        // ==========================================
+        colors.forEach(btn => {
+            btn.addEventListener('click', () => {
+                colors.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentColor = btn.dataset.color;
+            });
+        });
+
+        clearBtn.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // ==========================================
+        // 5. CAPTURA DE PANTALLA (Cámara + Graffiti)
+        // ==========================================
+        captureBtn.addEventListener('click', () => {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            captureCanvas.width = w;
+            captureCanvas.height = h;
+
+            // Paso 1: Dibujar frame del video (cámara) en el canvas oculto
+            captureCtx.drawImage(video, 0, 0, w, h);
+
+            // Paso 2: Superponer el dibujo del graffiti
+            captureCtx.drawImage(canvas, 0, 0, w, h);
+
+            // Paso 3: Convertir a imagen y descargar
+            captureCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'graffiti_' + Date.now() + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                // Feedback visual: Flash + Toast
+                flash.style.opacity = '1';
+                setTimeout(() => flash.style.opacity = '0', 150);
+
+                saveToast.classList.add('show');
+                setTimeout(() => saveToast.classList.remove('show'), 2000);
+
+            }, 'image/png');
+        });
+
+    </script>
+</body>
+
+</html>

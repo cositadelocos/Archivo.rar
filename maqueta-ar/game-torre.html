@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Juego: Construye la Torre</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            touch-action: none;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .back-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .score-board {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: #FFD700;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border: 2px solid #FFD700;
+        }
+
+        #instruction {
+            text-align: center;
+            color: white;
+            font-size: 1.1rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 0 15px 20px 15px;
+            pointer-events: none;
+        }
+
+        #game-over-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 50;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        #game-over-screen h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        #game-over-screen p {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #FFD700;
+        }
+
+        #retry-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="header">
+            <a href="index.html" class="back-btn">⬅ Salir</a>
+            <div class="score-board">🏗️ Pisos: <span id="score">0</span></div>
+        </div>
+        <div id="instruction">👆 ¡Toca para soltar la pieza!</div>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>💥 ¡Se derrumbó!</h1>
+        <p>Lograste <span id="final-score">0</span> pisos</p>
+        <button id="retry-btn" onclick="location.reload()">🔁 Reintentar</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const finalScoreEl = document.getElementById('final-score');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        // Ajustar canvas
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // ==========================================
+        // CONFIGURACIÓN DEL JUEGO
+        // ==========================================
+        const GROUND_Y = canvas.height - 40;
+        const PIECE_HEIGHT = 35;
+        const INITIAL_WIDTH = 150;
+        const COLORS = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+            '#FFEAA7', '#DDA7FF', '#FF9FF3', '#54A0FF',
+            '#5F27CD', '#01CBC6', '#F8B500', '#FC427B'
+        ];
+
+        let pieces = [];        // Piezas ya colocadas
+        let currentPiece = null; // Pieza cayendo / moviéndose
+        let score = 0;
+        let gameActive = true;
+        let speed = 2;          // Velocidad horizontal de la pieza
+        let direction = 1;      // 1 = derecha, -1 = izquierda
+        let fallSpeed = 0;      // Velocidad de caída al soltar
+
+        // ==========================================
+        // CREAR PIEZA
+        // ==========================================
+        function createPiece() {
+            const lastPiece = pieces[pieces.length - 1];
+            const width = lastPiece ? lastPiece.width : INITIAL_WIDTH;
+
+            currentPiece = {
+                x: 0,
+                y: 50,  // Empieza arriba
+                width: width,
+                height: PIECE_HEIGHT,
+                color: COLORS[score % COLORS.length],
+                falling: false,
+                settled: false
+            };
+
+            // Velocidad aumenta con el puntaje
+            speed = 2 + (score * 0.3);
+            direction = 1;
+        }
+
+        // ==========================================
+        // COLOCAR PIEZA (El usuario toca)
+        // ==========================================
+        function dropPiece() {
+            if (!currentPiece || !gameActive || currentPiece.falling) return;
+            currentPiece.falling = true;
+            fallSpeed = 0;
+        }
+
+        function settlePiece() {
+            const lastPiece = pieces[pieces.length - 1];
+            let targetY, overlap, overlapX;
+
+            if (!lastPiece) {
+                // Primera pieza: cae al suelo
+                targetY = GROUND_Y - PIECE_HEIGHT;
+                overlap = currentPiece.width;
+                overlapX = currentPiece.x;
+            } else {
+                targetY = lastPiece.y - PIECE_HEIGHT;
+
+                // Calcular superposición
+                const leftEdge = Math.max(currentPiece.x, lastPiece.x);
+                const rightEdge = Math.min(
+                    currentPiece.x + currentPiece.width,
+                    lastPiece.x + lastPiece.width
+                );
+                overlap = rightEdge - leftEdge;
+                overlapX = leftEdge;
+            }
+
+            // ¿Se cayó del todo?
+            if (overlap <= 0) {
+                gameOver();
+                return;
+            }
+
+            // Recortar pieza al área de superposición
+            currentPiece.x = overlapX;
+            currentPiece.width = overlap;
+            currentPiece.y = targetY;
+            currentPiece.settled = true;
+
+            pieces.push(currentPiece);
+            score++;
+            scoreEl.innerText = score;
+
+            // ¿Pieza muy pequeña? También fin
+            if (overlap < 15) {
+                gameOver();
+                return;
+            }
+
+            // Siguiente pieza
+            currentPiece = null;
+            setTimeout(createPiece, 300);
+        }
+
+        // ==========================================
+        // GAME OVER
+        // ==========================================
+        function gameOver() {
+            gameActive = false;
+            finalScoreEl.innerText = score;
+            gameOverScreen.style.display = 'flex';
+            if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+        }
+
+        // ==========================================
+        // GAME LOOP
+        // ==========================================
+        function update() {
+            if (!gameActive) return;
+
+            if (currentPiece && !currentPiece.settled) {
+                if (!currentPiece.falling) {
+                    // Mover horizontalmente
+                    currentPiece.x += speed * direction;
+
+                    // Rebotar en bordes
+                    if (currentPiece.x + currentPiece.width > canvas.width) {
+                        direction = -1;
+                    }
+                    if (currentPiece.x < 0) {
+                        direction = 1;
+                    }
+                } else {
+                    // Cayendo
+                    fallSpeed += 0.5; // Gravedad
+                    currentPiece.y += fallSpeed;
+
+                    // Chequear si llegó a su posición
+                    const lastPiece = pieces[pieces.length - 1];
+                    const targetY = lastPiece
+                        ? lastPiece.y - PIECE_HEIGHT
+                        : GROUND_Y - PIECE_HEIGHT;
+
+                    if (currentPiece.y >= targetY) {
+                        currentPiece.y = targetY;
+                        settlePiece();
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Fondo con estrellas
+            drawStars();
+
+            // Suelo
+            ctx.fillStyle = '#2d3436';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+            ctx.fillStyle = '#636e72';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 3);
+
+            // Dibujar piezas colocadas
+            pieces.forEach((p, i) => {
+                drawBlock(p, i);
+            });
+
+            // Dibujar pieza actual
+            if (currentPiece && !currentPiece.settled) {
+                drawBlock(currentPiece, score);
+
+                // Línea guía vertical (solo si no está cayendo)
+                if (!currentPiece.falling) {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(currentPiece.x + currentPiece.width / 2, currentPiece.y + PIECE_HEIGHT);
+                    ctx.lineTo(currentPiece.x + currentPiece.width / 2, GROUND_Y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+
+        function drawBlock(p, index) {
+            // Sombra
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(p.x + 3, p.y + 3, p.width, p.height);
+
+            // Bloque con gradiente
+            const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.height);
+            grad.addColorStop(0, p.color);
+            grad.addColorStop(1, shadeColor(p.color, -30));
+            ctx.fillStyle = grad;
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+
+            // Borde
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(p.x, p.y, p.width, p.height);
+
+            // Brillo superior
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(p.x, p.y, p.width, p.height / 3);
+        }
+
+        // Estrellas decorativas
+        let stars = [];
+        for (let i = 0; i < 80; i++) {
+            stars.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight * 0.7,
+                r: Math.random() * 2,
+                a: Math.random()
+            });
+        }
+        function drawStars() {
+            stars.forEach(s => {
+                s.a += 0.01;
+                ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.sin(s.a) * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Helper: oscurecer color
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+            const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+            const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+
+        // ==========================================
+        // MAIN LOOP
+        // ==========================================
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // INPUT
+        // ==========================================
+        document.addEventListener('touchstart', (e) => {
+            if (e.target.closest('a') || e.target.closest('button')) return;
+            e.preventDefault();
+            dropPiece();
+        });
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('a') || e.target.closest('button')) return;
+            dropPiece();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') dropPiece();
+        });
+
+        // ==========================================
+        // INICIAR
+        // ==========================================
+        createPiece();
+        gameLoop();
+    </script>
+</body>
+
+</html>

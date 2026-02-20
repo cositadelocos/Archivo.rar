@@ -152,9 +152,9 @@
 
         <!-- Mueble Pivotante -->
         <!-- Envolvemos el mueble en una entidad 'pivot' que es la que rotamos -->
-        <a-entity id="mueble-pivot" position="0 0 0">
-            <!-- Asumiendo que el modelo original necesita rotación 90x para estar de pie -->
-            <a-gltf-model src="#modelo-mueble" position="0 0.1 0" scale="2.3 2.3 2.3" rotation="90 0 0"
+        <a-entity id="mueble-pivot" position="0 -1.5 0">
+            <!-- Ajuste de rotación para que quede vertical (de pie) y centrado -->
+            <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="2.3 2.3 2.3" rotation="0 0 0"
                 shadow="cast: true"></a-gltf-model>
         </a-entity>
 
