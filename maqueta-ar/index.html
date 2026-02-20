@@ -39,6 +39,51 @@
       <span id="card-year" class="badge">2024</span>
       <div id="card-desc">Descripción de la pieza museográfica...</div>
     </div>
+
+    <!-- Botón Curatorial (esquina superior derecha) -->
+    <button id="curatorial-btn" style="
+      position: fixed; top: 15px; right: 15px; z-index: 1100;
+      background: rgba(0,0,0,0.7); color: white; border: 2px solid rgba(255,255,255,0.6);
+      padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;
+      cursor: pointer; backdrop-filter: blur(5px);
+    ">📁 Archivo.rar</button>
+
+    <!-- Panel Curatorial (oculto por defecto) -->
+    <div id="curatorial-panel" style="
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 2000; background: rgba(0,0,0,0.92); color: white;
+      overflow-y: auto; padding: 30px 25px;
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
+    ">
+      <div style="max-width: 600px; margin: 0 auto;">
+        <h1 style="font-size: 2rem; margin-bottom: 5px; letter-spacing: 2px;">Archivo.rar</h1>
+        <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 25px;">Galería Museográfica</p>
+        <hr style="border: 1px solid rgba(255,255,255,0.15); margin-bottom: 25px;">
+
+        <h3 style="color: #FFD700; margin-bottom: 15px;">Texto Curatorial</h3>
+
+        <p style="line-height: 1.7; margin-bottom: 15px; color: #ddd;">
+          Esta galería propone un recorrido por mi formación como diseñador, entendiendo el diseño como un proceso de
+          construcción entre identidad, materia y ciudad. La exposición inicia con el stencil, técnica de ilustración
+          urbana que forma parte de mi identidad creativa y mi relación con el espacio público. A partir de allí, el
+          recorrido revela mi proceso proyectual: del boceto al modelado 3D y posteriormente a la materialización
+          física.
+        </p>
+
+        <p style="line-height: 1.7; margin-bottom: 15px; color: #ddd;">
+          La exploración de procesos industriales se manifiesta en la experimentación con madera, metal y acrílico,
+          consolidándose en un objeto funcional que traduce aprendizaje técnico en diseño aplicado. Finalmente, Brote
+          sintetiza esta evolución, proponiendo una integración entre árbol y pavimento, naturaleza y ciudad. La sala no
+          solo exhibe objetos, sino una manera de pensar y construir el entorno urbano.
+        </p>
+
+        <button id="curatorial-close" style="
+          display: block; margin: 30px auto 20px; padding: 14px 40px;
+          background: white; color: black; border: none; border-radius: 25px;
+          font-size: 1rem; font-weight: bold; cursor: pointer;
+        ">⬅ Volver a la experiencia</button>
+      </div>
+    </div>
   </div>
 
   <a-scene mindar-image="imageTargetSrc: ./assets/targets.mind?v=3; maxTrack: 5; filterMinCF:0.0001; filterBeta: 0.001;"
@@ -90,29 +135,39 @@
     // --- DATOS DE PIEZAS ---
     const piecesData = {
       'brote': {
-        title: "Brote",
-        year: "Proyecto",
-        desc: `<p>Surge como respuesta a la tensión entre las raíces del eucalipto pomarroso y la rigidez del pavimento. Sistema modular inspirado en patrones rizomáticos.</p>`
-      },
-      'mueble': {
-        title: "Silla Eames",
-        year: "1956",
-        desc: "<p>Icono del diseño moderno. Contrachapado moldeado y piel. <strong>¡Estructura ligera pero estable!</strong></p>"
+        title: "BROTE",
+        year: "2025",
+        desc: `<p>Proyecto que surge a partir de la observación de problemáticas urbanas relacionadas con el deterioro de los árboles en la ciudad, afectados por compactación del suelo, encharcamientos y estructuras inadecuadas en los alcorques.</p>
+        <p>BROTE propone una intervención que media entre lo urbano y lo natural, generando condiciones más adecuadas para el desarrollo del árbol dentro del entorno construido. Esta pieza sintetiza mi interés por el objeto como mediador entre ciudad y naturaleza, y representa mi visión del diseño como herramienta de transformación urbana.</p>
+        <p><strong>Ficha técnica:</strong><br>Tipología: Intervención urbana<br>Enfoque: Relación ciudad–naturaleza<br>Proyecto académico<br>Año: 2025</p>`
       },
       'carro': {
-        title: "Automóvil Clásico",
-        year: "1965",
-        desc: "<p>Vehículo de época restaurado. Muestra la evolución del diseño industrial automotriz.</p>"
+        title: "CARRO LUNAR",
+        year: "2024",
+        desc: `<p>Proyecto académico desarrollado como laboratorio de procesos industriales. Este carro lunar surge como ejercicio de exploración material y técnica, integrando soldadura, madera, acrílico y estructura metálica.</p>
+        <p>Más que un objeto final, representa un momento de aprendizaje: comprender cómo los materiales dialogan, cómo se ensamblan y cómo la técnica condiciona la forma. Este proyecto consolidó mi interés por la fabricación y la construcción como parte esencial del diseño.</p>
+        <p><strong>Ficha técnica:</strong><br>Materiales: Metal, madera, acrílico<br>Procesos: Soldadura, corte, ensamble<br>Proyecto académico<br>Año: 2024</p>`
+      },
+      'mueble': {
+        title: "WASA",
+        year: "2025",
+        desc: `<p>Resultado de la aplicación práctica de los procesos industriales aprendidos previamente. WASA es un mueble diseñado para zonas de ropa, pensado para planchar y almacenar prendas en un mismo sistema.</p>
+        <p>Integra estructura metálica, madera y cuero, combinando resistencia, funcionalidad y carácter material. Este proyecto marca el paso de la experimentación técnica hacia la resolución de un objeto funcional, donde el diseño responde a una necesidad concreta sin perder identidad formal.</p>
+        <p><strong>Ficha técnica:</strong><br>Materiales: Estructura metálica, madera, cuero<br>Función: Planchar y almacenar ropa<br>Proyecto académico<br>Año: 2025</p>`
       },
       'muro': {
-        title: "Muro Urbano",
-        year: "Intervención",
-        desc: "<p>Un espacio en blanco listo para ser intervenido. <strong>¡Expresa tu arte callejero!</strong></p>"
+        title: "JORDANO",
+        year: "2025",
+        desc: `<p>Stencil urbano en acetato. Esta pieza representa el origen de mi identidad creativa. JORDANO es un ejercicio de ilustración en stencil que explora la repetición, el contraste y la apropiación del espacio urbano.</p>
+        <p>Los acetatos permiten multiplicar la imagen y llevarla al espacio público, especialmente en el nororiente de Bogotá, donde el muro se convierte en soporte y medio de expresión. Esta obra marca mi interés por lo urbano, lo gráfico y lo directo: intervenir, comunicar y dejar huella en la ciudad.</p>
+        <p><strong>Ficha técnica:</strong><br>Técnica: Stencil sobre acetato<br>Ubicación: Nororiente de Bogotá<br>Año: 2025</p>`
       },
       'proceso': {
-        title: "Proceso Constructivo",
-        year: "Taller",
-        desc: "<p>El arte de construir pieza a pieza. <strong>¿Qué tan alto puedes llegar?</strong></p>"
+        title: "PROCESO CREATIVO",
+        year: "Actualmente",
+        desc: `<p>Esta sección expone mi forma de pensar el diseño. El proceso inicia con el dibujo como herramienta de exploración, continúa con la modelación 3D como espacio de prueba y ajuste, y culmina en la materialización física.</p>
+        <p>Para mí, diseñar no es solo resolver un objeto final, sino recorrer una secuencia de decisiones donde cada etapa transforma la idea inicial. Aquí se evidencia cómo el pensamiento evoluciona: del trazo intuitivo al volumen digital y finalmente a la experiencia tangible.</p>
+        <p><strong>Ficha técnica:</strong><br>Bocetos, modelado 3D y prototipado físico<br>Año: Actualmente</p>`
       }
     };
 
@@ -352,6 +407,14 @@
           }
         }, 300);
       });
+    });
+
+    // --- PANEL CURATORIAL ---
+    document.getElementById('curatorial-btn').addEventListener('click', () => {
+      document.getElementById('curatorial-panel').style.display = 'block';
+    });
+    document.getElementById('curatorial-close').addEventListener('click', () => {
+      document.getElementById('curatorial-panel').style.display = 'none';
     });
 
   </script>
