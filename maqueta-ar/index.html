@@ -53,25 +53,20 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- 
-           MODELOS INDEPENDIENTES (GHOSTS) 
-           Estos modelos no están dentro de los targets para poder controlarlos manualmente.
-           Se moverán via script para coincidir con el target cuando se detecte.
-      -->
-    <a-entity id="ghost-brote" visible="false">
-      <a-gltf-model src="#modelo-brote" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
-    </a-entity>
-    <a-entity id="ghost-mueble" visible="false">
-      <a-gltf-model src="#modelo-mueble" scale="2.3 2.3 2.3" rotation="90 0 0"></a-gltf-model>
-    </a-entity>
-    <a-entity id="ghost-carro" visible="false">
-      <a-gltf-model src="#modelo-carro" scale="1.2 1.2 1.2" rotation="70 -5 0"></a-gltf-model>
+    <!-- Target 0: Brote -->
+    <a-entity mindar-image-target="targetIndex: 0" data-id="brote">
+      <a-gltf-model src="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
-    <!-- TARGETS (Solo referencias vacías para tracking) -->
-    <a-entity mindar-image-target="targetIndex: 0" data-id="brote" class="target-ref"></a-entity>
-    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble" class="target-ref"></a-entity>
-    <a-entity mindar-image-target="targetIndex: 2" data-id="carro" class="target-ref"></a-entity>
+    <!-- Target 1: Mueble -->
+    <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
+      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="2.3 2.3 2.3" rotation="90 0 0"></a-gltf-model>
+    </a-entity>
+
+    <!-- Target 2: Carro -->
+    <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
+      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="1.2 1.2 1.2" rotation="70 -5 0"></a-gltf-model>
+    </a-entity>
 
   </a-scene>
 
@@ -110,37 +105,69 @@
     const cardYear = document.getElementById('card-year');
     const cardDesc = document.getElementById('card-desc');
 
-    // Estado del sistema
+    // Estado
     let currentTargetId = null;
     let isLocked = false;
+    let lockedClone = null; // Referencia al clon bloqueado
 
-    // Referencias a entidades
-    const targets = {
-      'brote': { ref: document.querySelector('[data-id="brote"]'), ghost: document.querySelector('#ghost-brote') },
-      'mueble': { ref: document.querySelector('[data-id="mueble"]'), ghost: document.querySelector('#ghost-mueble') },
-      'carro': { ref: document.querySelector('[data-id="carro"]'), ghost: document.querySelector('#ghost-carro') }
-    };
+    // Función para clonar el modelo actual en el espacio mundial
+    function lockModel() {
+      if (!currentTargetId) return;
 
-    // Loop de sincronización (Ghost Follower)
-    sceneEl.addEventListener("tick", (e) => {
-      if (isLocked) return; // Si está bloqueado, no actualizamos posición (se queda quieto en el mundo)
+      // 1. Encontrar el target activo y su modelo
+      const target = document.querySelector(`[data-id="${currentTargetId}"]`);
+      const model = target.querySelector('a-gltf-model');
 
-      for (const key in targets) {
-        const t = targets[key];
-        // Verificamos si el target está visible (trackeado)
-        // MindAR pone visible=true/false en el target entity
-        if (t.ref.object3D.visible) {
-          // Copiar transformación del target al ghost
-          t.ghost.object3D.position.copy(t.ref.object3D.position);
-          t.ghost.object3D.quaternion.copy(t.ref.object3D.quaternion);
-          t.ghost.object3D.visible = true;
-        } else {
-          t.ghost.object3D.visible = false;
-        }
+      if (!model) return;
+
+      // 2. Crear clon
+      lockedClone = model.cloneNode(true);
+
+      // 3. Copiar Transformación Mundial EXACTA
+      // Necesitamos forzar la actualización de matrices para asegurar precisión
+      target.object3D.updateMatrixWorld();
+      model.object3D.updateMatrixWorld();
+
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      const worldScale = new THREE.Vector3();
+
+      model.object3D.getWorldPosition(worldPosition);
+      model.object3D.getWorldQuaternion(worldQuaternion);
+      model.object3D.getWorldScale(worldScale);
+
+      // 4. Configurar clon
+      lockedClone.setAttribute('position', worldPosition);
+      lockedClone.setAttribute('quaternion', worldQuaternion);
+      lockedClone.setAttribute('scale', worldScale);
+
+      // Ajustes importantes para que sea independiente
+      // lockedClone.removeAttribute('mindar-image-target'); // This attribute is on the parent a-entity, not the model
+      lockedClone.id = 'locked-model-clone';
+
+      // 5. Añadir a la escena (fuera del tracking)
+      sceneEl.appendChild(lockedClone);
+
+      // 6. Ocultar original (para no ver doble si el tracking sigue)
+      model.object3D.visible = false;
+    }
+
+    function unlockModel() {
+      if (lockedClone) {
+        // Eliminar clon
+        lockedClone.parentNode.removeChild(lockedClone);
+        lockedClone = null;
       }
-    });
 
-    // Eventos de Botones
+      // Restaurar visibilidad del original si existe
+      if (currentTargetId) {
+        const target = document.querySelector(`[data-id="${currentTargetId}"]`);
+        const model = target ? target.querySelector('a-gltf-model') : null;
+        if (model) model.object3D.visible = true;
+      }
+    }
+
+    // Eventos UI
     closeCardBtn.addEventListener('click', () => {
       infoCard.classList.add('hidden');
       actionBar.classList.remove('hidden');
@@ -161,55 +188,75 @@
     lockBtn.addEventListener('click', () => {
       isLocked = !isLocked;
       if (isLocked) {
+        // ACTIVAR BLOQUEO
+        lockModel();
+
         lockBtn.textContent = "🔒 Desbloquear";
         lockBtn.style.background = "#ff4444";
         lockBtn.style.color = "white";
-        scanInstruction.classList.add('hidden'); // Asegurar oculto
+
+        // Ocultar instrucción si estaba visible
+        scanInstruction.classList.add('hidden');
+
       } else {
+        // DESACTIVAR BLOQUEO
+        unlockModel();
+
         lockBtn.textContent = "🔓 Bloquear";
         lockBtn.style.background = "rgba(255, 255, 255, 0.95)";
         lockBtn.style.color = "#111";
 
-        // Si soltamos el lock y no hay target, se ocultará en el siguiente tick
+        // Si al desbloquear NO estamos viendo un target, limpiar UI
+        const target = document.querySelector(`[data-id="${currentTargetId}"]`);
+        if (target && !target.object3D.visible) {
+          scanInstruction.classList.remove('hidden');
+          actionBar.classList.add('hidden');
+          infoCard.classList.add('hidden'); // Ocultar tarjeta si no hay target visible
+          currentTargetId = null;
+        }
       }
     });
 
-    // Detección de eventos (Solo para lógica UI, no para visualización modelo)
-    Object.values(targets).forEach(obj => {
-      const target = obj.ref;
+    // Eventos MindAR
+    const targets = document.querySelectorAll('[mindar-image-target]');
 
+    targets.forEach(target => {
       target.addEventListener("targetFound", event => {
-        if (isLocked) return; // Ignorar nuevos targets si estamos bloqueados
+        // Si estamos bloqueados, ignoramos nuevos targets visualmente
+        // (El tracking sigue funcionando de fondo, pero no cambiamos nuestro clon)
+        if (isLocked) return;
 
         console.log("Found:", target.dataset.id);
         currentTargetId = target.dataset.id;
 
-        // UI Feedback
+        // Asegurar visible (por si venía de un unlock)
+        const model = target.querySelector('a-gltf-model');
+        if (model) model.object3D.visible = true;
+
+        // Feedback UI
         scanInstruction.classList.add('hidden');
         actionBar.classList.remove('hidden');
-
-        // Reiniciar botón lock al cambiar de target
-        // isLocked = false; 
-        // lockBtn.textContent = "🔓 Bloquear";
-        // ... 
       });
 
       target.addEventListener("targetLost", event => {
         console.log("Lost:", target.dataset.id);
+
         if (isLocked) {
-          // NO HACER NADA, mantenemos todo visible
+          // NO HACER NADA. El clon sigue visible en la escena.
         } else {
-          // Si no está bloqueado, ocultar UI
-          if (currentTargetId === target.dataset.id) {
-            // Pequeño delay para evitar parpadeo
-            setTimeout(() => {
-              if (!isLocked && !target.object3D.visible) {
+          // Comportamiento normal: ocultar UI
+          // Usamos un pequeño timeout para evitar parpadeos si se pierde por ms
+          setTimeout(() => {
+            if (!isLocked && currentTargetId === target.dataset.id) {
+              // Verificar si realmente sigue perdido (visibilidad)
+              if (!target.object3D.visible) {
                 scanInstruction.classList.remove('hidden');
                 actionBar.classList.add('hidden');
                 infoCard.classList.add('hidden');
+                currentTargetId = null; // Limpiar currentTargetId si se pierde y no está bloqueado
               }
-            }, 200);
-          }
+            }
+          }, 300);
         }
       });
     });
@@ -217,4 +264,3 @@
 </body>
 
 </html>
-```
