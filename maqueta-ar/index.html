@@ -167,6 +167,61 @@
       }
     }
 
+    // Variables de interacción
+    let isDragging = false;
+    let previousMouseX = 0;
+
+    // Eventos de interacción (Touch/Mouse) para rotar el modelo bloqueado
+    document.addEventListener('touchstart', onTouchStart, { passive: false });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    function onTouchStart(e) {
+      if (!isLocked || !lockedClone) return;
+      // Evitar scroll
+      // e.preventDefault(); 
+      isDragging = true;
+      previousMouseX = e.touches[0].clientX;
+    }
+
+    function onTouchMove(e) {
+      if (!isDragging || !isLocked || !lockedClone) return;
+      const deltaX = e.touches[0].clientX - previousMouseX;
+      rotateModel(deltaX);
+      previousMouseX = e.touches[0].clientX;
+    }
+
+    function onTouchEnd() {
+      isDragging = false;
+    }
+
+    function onMouseDown(e) {
+      if (!isLocked || !lockedClone) return;
+      isDragging = true;
+      previousMouseX = e.clientX;
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging || !isLocked || !lockedClone) return;
+      const deltaX = e.clientX - previousMouseX;
+      rotateModel(deltaX);
+      previousMouseX = e.clientX;
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+    }
+
+    function rotateModel(deltaX) {
+      // Sensibilidad de rotación
+      const rotationSpeed = 0.01;
+      lockedClone.object3D.rotation.y += deltaX * rotationSpeed;
+    }
+
     // Eventos UI
     closeCardBtn.addEventListener('click', () => {
       infoCard.classList.add('hidden');
