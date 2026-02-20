@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Juego: Estabilidad Ligera</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        body {
+            margin: 0;
+            background: #ddd;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        #ui-layer {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            pointer-events: auto;
+            align-self: flex-start;
+        }
+
+        #balance-meter {
+            width: 300px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid #555;
+        }
+
+        #balance-knob {
+            width: 20px;
+            height: 20px;
+            background: #FF9800;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            transition: left 0.1s linear;
+            box-shadow: 0 0 5px black;
+        }
+
+        #center-marker {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: lime;
+            transform: translateX(-50%);
+        }
+
+        #msg-game {
+            font-size: 1.5rem;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        #tap-area {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.1), transparent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .tap-icon {
+            font-size: 3rem;
+            animation: bounce 0.5s infinite alternate;
+            opacity: 0.5;
+            color: #333;
+        }
+
+        @keyframes bounce {
+            from {
+                transform: translateY(0);
+            }
+
+            to {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-layer">
+        <a href="index.html" class="back-btn">⬅ Volver</a>
+
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <div id="msg-game">¡Equilíbralo!</div>
+            <div id="balance-meter">
+                <div id="center-marker"></div>
+                <!-- Zonas de peligro -->
+                <div style="position:absolute; left:0; width:20%; height:100%; background:rgba(255,0,0,0.3)"></div>
+                <div style="position:absolute; right:0; width:20%; height:100%; background:rgba(255,0,0,0.3)"></div>
+
+                <div id="balance-knob"></div>
+            </div>
+        </div>
+
+        <div id="tap-area">
+            <div class="tap-icon">👆 TAP 👆</div>
+        </div>
+    </div>
+
+    <a-scene background="color: #f0f0f0">
+        <a-assets>
+            <a-asset-item id="modelo-mueble" src="./assets/models/mueble.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- Luces de estudio -->
+        <a-light type="ambient" color="#CCC"></a-light>
+        <a-light type="directional" position="2 4 2" intensity="1" castShadow="true"></a-light>
+
+        <!-- Suelo con sombra -->
+        <a-circle position="0 0 0" radius="3" color="#999" rotation="-90 0 0" shadow="receive: true"></a-circle>
+
+        <!-- Mueble Pivotante -->
+        <!-- Envolvemos el mueble en una entidad 'pivot' que es la que rotamos -->
+        <a-entity id="mueble-pivot" position="0 0 0">
+            <!-- Asumiendo que el modelo original necesita rotación 90x para estar de pie -->
+            <a-gltf-model src="#modelo-mueble" position="0 0.1 0" scale="2.3 2.3 2.3" rotation="90 0 0"
+                shadow="cast: true"></a-gltf-model>
+        </a-entity>
+
+        <a-camera position="0 1.5 2.5" look-controls="enabled: false"></a-camera>
+    </a-scene>
+
+    <script>
+        const pivot = document.getElementById('mueble-pivot');
+        const knob = document.getElementById('balance-knob');
+        const msg = document.getElementById('msg-game');
+        const tapArea = document.getElementById('tap-area');
+
+        let angle = 0; // Ángulo de inclinación (-50 a 50)
+        let velocity = 0; // Velocidad de caída
+        let gravity = 0.5; // Fuerza que lo empuja a caer
+        let isPlaying = true;
+        let score = 0;
+        let difficulty = 0.05;
+
+        // Inversión de dirección aleatoria para hacerlo interesante
+        let driftDirection = 1; // 1 = derecha, -1 = izquierda
+
+        // Loop de Física simulada
+        setInterval(() => {
+            if (!isPlaying) return;
+
+            // 1. Gravedad / Inestabilidad Natural
+            // Se cae cada vez más rápido hacia el lado que ya está inclinado
+            if (angle !== 0) {
+                velocity += (angle > 0 ? difficulty : -difficulty);
+            } else {
+                // Si está perfectamente centrado, empieza a caer random
+                velocity += (Math.random() - 0.5) * 0.2;
+            }
+
+            // Aplicar velocidad
+            angle += velocity;
+
+            // 2. Actualizar visuales 3D
+            // Rotamos en eje Z para 'lado a lado'
+            pivot.object3D.rotation.z = THREE.MathUtils.degToRad(-angle); // Negativo para coincidir visualmente
+
+            // 3. Actualizar UI
+            // Mapear ángulo -50..50 a porcentaje 0..100
+            // Centro (0 deg) = 50%
+            let percent = 50 + angle;
+            percent = Math.max(0, Math.min(100, percent));
+            knob.style.left = percent + '%';
+
+            // 4. Condiciones de Derrota
+            if (Math.abs(angle) > 40) {
+                gameOver();
+            }
+
+            // Aumentar dificultad
+            score++;
+            if (score % 100 === 0) {
+                difficulty += 0.01;
+                msg.innerText = "¡Cuidado! Se hace más pesado...";
+            }
+
+        }, 30); // ~30fps
+
+        // INPUT: Tocar para corregir
+        // La corrección debe oponerse a la caída
+        tapArea.addEventListener('click', handleTap);
+        tapArea.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(); });
+
+        function handleTap() {
+            if (!isPlaying) return;
+
+            // "Empuje" corrector. 
+            // Si está cayendo a la derecha (>0), empujamos a la izquierda (restamos).
+            // Si está cayendo a la izquierda (<0), empujamos a la derecha (sumamos).
+            // Pero para hacerlo "juego", el usuario debe tocar en el lado opuesto de la pantalla?
+            // Simplifiquemos: Tocar siempre 'levanta' el lado caído, o "endereza".
+
+            // Lógica simple: Un tap fuerte hacia el centro
+            if (angle > 0) {
+                velocity -= 2; // Contrarrestar caída a derecha
+            } else {
+                velocity += 2; // Contrarrestar caída a izquierda
+            }
+
+            // Feedback visual
+            msg.innerText = "¡Aguanta!";
+            if (navigator.vibrate) navigator.vibrate(20);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            msg.innerText = "¡SE CAYÓ!";
+            msg.style.color = "red";
+
+            // Animación de caída final
+            pivot.setAttribute('animation', `property: rotation; to: 0 0 ${angle > 0 ? -90 : 90}; dur: 500; easing: easeInQuad`);
+
+            setTimeout(() => {
+                location.reload();
+            }, 2500);
+        }
+
+    </script>
+</body>
+
+</html>

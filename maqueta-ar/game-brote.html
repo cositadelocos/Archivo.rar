@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Juego: Hazlo Crecer</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        #ui-layer {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hud-text {
+            color: white;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            pointer-events: auto;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        #msg-box {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            margin-top: 20px;
+        }
+
+        /* Efecto pulsante para animar al usuario a tocar */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+        }
+
+        #tap-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            animation: pulse 2s infinite;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-layer">
+        <div style="text-align: left;">
+            <a href="index.html" class="back-btn">⬅ Volver a AR</a>
+        </div>
+
+        <div id="tap-hint"></div>
+
+        <div class="hud-text">
+            <h1>Hazlo Crecer 🌱</h1>
+            <div id="msg-box">Toca la pantalla a un ritmo suave...</div>
+        </div>
+    </div>
+
+    <a-scene background="color: #111" renderer="colorManagement: true;">
+        <a-assets>
+            <a-asset-item id="modelo-brote" src="./assets/models/brote.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- Iluminación para resaltar el modelo -->
+        <a-light type="ambient" color="#BBB"></a-light>
+        <a-light type="directional" position="1 2 3" intensity="1.5"></a-light>
+        <a-light type="point" position="-2 3 -2" color="#4CAF50" intensity="0.8"></a-light>
+
+        <a-camera position="0 1.5 3" look-controls="enabled: false"></a-camera>
+
+        <!-- Modelo Centrado -->
+        <a-entity id="brote-entity" gltf-model="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5"
+            animation="property: rotation; to: 0 360 0; loop: true; dur: 20000; easing: linear">
+        </a-entity>
+
+        <!-- Plano de suelo estético -->
+        <a-circle rotation="-90 0 0" radius="4" color="#222" opacity="0.5"></a-circle>
+    </a-scene>
+
+    <script>
+        // VARIABLES JUEGO
+        let plantState = 0;
+        let lastTouchTime = 0;
+        let stressLevel = 0;
+        const MAX_STRESS = 3;
+        const GROWTH_STAGES = 5;
+        const broteEntity = document.getElementById('brote-entity');
+        const msgBox = document.getElementById('msg-box');
+        const tapHint = document.getElementById('tap-hint');
+
+        // Mostrar hint visual inicial
+        setTimeout(() => tapHint.style.display = 'block', 1000);
+
+        // INPUT EVENT
+        document.addEventListener('touchstart', handleInput);
+        document.addEventListener('click', handleInput);
+
+        function handleInput(e) {
+            // Ignorar clics en botón volver
+            if (e.target.closest('a')) return;
+
+            tapHint.style.display = 'none';
+
+            const now = Date.now();
+            const delta = now - lastTouchTime;
+            lastTouchTime = now;
+
+            // Lógica de Ritmo
+            if (delta < 500) {
+                // Muy rápido = Estrés
+                stressLevel++;
+                updateMessage("¡Muy rápido! ¡Estrés! 😖", "#ff5555");
+                shakeModel();
+
+                if (stressLevel > MAX_STRESS) {
+                    gameOver();
+                }
+            } else {
+                // Buen ritmo = Crecimiento
+                stressLevel = Math.max(0, stressLevel - 1);
+                if (plantState < GROWTH_STAGES) {
+                    plantState++;
+                    growPlant();
+                }
+            }
+        }
+
+        function growPlant() {
+            const scale = 1.5 + (plantState * 0.8); // Incremento de escala
+            broteEntity.removeAttribute('animation__scale');
+            broteEntity.setAttribute('animation__scale', `property: scale; to: ${scale} ${scale} ${scale}; dur: 600; easing: easeOutElastic;`);
+
+            // Sonido o feedback visual extra podría ir aquí
+
+            if (plantState === GROWTH_STAGES) {
+                victory();
+            } else {
+                const messages = ["¡Eso es!", "Sigue así...", "Se ve fuerte...", "Casi florece..."];
+                updateMessage(messages[plantState - 1] || "Creciendo...", "#88ff88");
+            }
+        }
+
+        function shakeModel() {
+            const currentScale = broteEntity.getAttribute('scale');
+            broteEntity.removeAttribute('animation__shake');
+            broteEntity.setAttribute('animation__shake', `property: position; from: -0.1 0 0; to: 0.1 0 0; dur: 50; loop: 5; dir: alternate`);
+            setTimeout(() => broteEntity.setAttribute('position', '0 0 0'), 300);
+        }
+
+        function victory() {
+            updateMessage("🌸 ¡HA FLORECIDO EL PROYECTO! 🌸", "#ffff00");
+            // Efecto de celebración (rotación rápida o escala final)
+            broteEntity.setAttribute('animation', 'property: rotation; to: 0 720 0; dur: 2000; easing: easeOutExpo');
+        }
+
+        function gameOver() {
+            updateMessage("🍂 Se marchitó por el estrés...", "#aaaaaa");
+            plantState = 0;
+            stressLevel = 0;
+            // Reducir escala dramáticamente
+            broteEntity.setAttribute('animation__scale', `property: scale; to: 0.5 0.5 0.5; dur: 1000; easing: easeOutBounce;`);
+
+            setTimeout(() => {
+                updateMessage("Intenta de nuevo más lento.", "white");
+                broteEntity.setAttribute('animation__scale', `property: scale; to: 1.5 1.5 1.5; dur: 1000;`);
+            }, 3000);
+        }
+
+        function updateMessage(text, color) {
+            msgBox.textContent = text;
+            msgBox.style.color = color || 'white';
+            msgBox.style.borderColor = color || 'white';
+        }
+    </script>
+</body>
+
+</html>

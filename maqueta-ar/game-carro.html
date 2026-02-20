@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Juego: Conduce el Equilibrio</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        body {
+            margin: 0;
+            background: #333;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        #ui-layer {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .score-board {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            color: #4CAF50;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 2px solid #4CAF50;
+        }
+
+        #instruction {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 50px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-layer">
+        <div class="hud-top">
+            <a href="index.html" class="back-btn">⬅ Salir</a>
+            <div class="score-board">Puntos: <span id="score">0</span></div>
+        </div>
+        <div id="instruction">📱 Inclina tu celular para moverte</div>
+    </div>
+
+    <!-- Physics no es estrictamente necesario si hacemos colisiones simples por distancia -->
+    <a-scene background="color: #222" fog="type: linear; color: #222; near: 10; far: 30">
+        <a-assets>
+            <a-asset-item id="modelo-carro" src="./assets/models/carro.glb"></a-asset-item>
+        </a-assets>
+
+        <!-- Carretera infinita (efecto visual) -->
+        <a-plane position="0 0 -10" rotation="-90 0 0" width="10" height="100" color="#333"></a-plane>
+        <a-grid helper geometry="width: 10; height: 100" material="opacity: 0.2; color: cyan"
+            position="0 0.1 -10"></a-grid>
+
+        <!-- Líneas de carril -->
+        <a-box position="-3 0.1 -10" depth="100" width="0.2" height="0.1" color="white"></a-box>
+        <a-box position="3 0.1 -10" depth="100" width="0.2" height="0.1" color="white"></a-box>
+
+        <!-- Luces -->
+        <a-light type="ambient" color="#444"></a-light>
+        <a-light type="directional" position="-1 4 2" intensity="1"></a-light>
+
+        <!-- EL CARRO -->
+        <!-- Lo ponemos un poco adelante de la cámara -->
+        <a-entity id="player-car" position="0 0 -3">
+            <a-gltf-model src="#modelo-carro" scale="1 1 1" rotation="0 180 0"></a-gltf-model>
+            <a-light type="spot" color="#fff" intensity="2" position="0 1 -0.5" rotation="-10 0 0" angle="45"></a-light>
+        </a-entity>
+
+
+        <a-camera position="0 2 2" rotation="-15 0 0" look-controls="enabled: false"></a-camera>
+    </a-scene>
+
+    <script>
+        const car = document.getElementById('player-car');
+        const scoreEl = document.getElementById('score');
+        const scene = document.querySelector('a-scene');
+        let score = 0;
+        let gameActive = true;
+        let obstacles = [];
+        let speed = 0.2;
+
+        // --- CONTROL POR INCLINACIÓN ---
+        window.addEventListener('deviceorientation', (event) => {
+            if (!gameActive) return;
+            const tilt = event.gamma; // Inclinación lateral
+            if (tilt) {
+                // Mapear inclinación (-30 a 30) a posición X (-4 a 4)
+                let x = (tilt / 30) * 4;
+                x = Math.max(-4, Math.min(4, x)); // Clampear
+
+                // Suavizar movimiento (Lerp simple)
+                const currentX = car.object3D.position.x;
+                car.object3D.position.x = currentX + (x - currentX) * 0.1;
+
+                // Efecto visual de inclinación del chasis
+                car.object3D.rotation.z = -THREE.MathUtils.degToRad(tilt * 0.5);
+                car.object3D.rotation.y = THREE.MathUtils.degToRad(180 - (tilt * 0.5));
+            }
+        });
+
+        // Loop de Juego
+        setInterval(() => {
+            if (!gameActive) return;
+
+            // 1. Mover obstáculos
+            obstacles.forEach((obs, index) => {
+                obs.object3D.position.z += speed; // Avanzan hacia la cámara (Z positivo)
+
+                // Colisión
+                const dist = obs.object3D.position.distanceTo(car.object3D.position);
+                if (dist < 1.5) { // Radio de colisión
+                    gameOver();
+                }
+
+                // Salieron de pantalla
+                if (obs.object3D.position.z > 5) {
+                    obs.parentNode.removeChild(obs);
+                    obstacles.splice(index, 1);
+                    score += 10;
+                    scoreEl.innerText = score;
+
+                    // Aumentar dificultad
+                    if (score % 100 === 0) speed += 0.05;
+                }
+            });
+
+        }, 16); // ~60fps logic
+
+        // Generador de Obstáculos
+        setInterval(() => {
+            if (!gameActive) return;
+            spawnObstacle();
+        }, 1500);
+
+        function spawnObstacle() {
+            const el = document.createElement('a-box');
+            // Posición random X (-4 a 4), Lejos en Z (-30)
+            const posX = (Math.random() * 8) - 4;
+            el.setAttribute('position', `${posX} 0.5 -30`);
+            el.setAttribute('color', '#ff3333');
+            el.setAttribute('width', '1');
+            el.setAttribute('height', '1');
+            el.setAttribute('depth', '1');
+
+            // Variar obstáculos
+            if (Math.random() > 0.7) {
+                // Obstáculo ancho
+                el.setAttribute('width', '3');
+                el.setAttribute('color', '#ff8800');
+            }
+
+            scene.appendChild(el);
+            obstacles.push(el);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('instruction').innerText = "💥 ¡CHOQUE! 💥";
+            document.getElementById('instruction').style.background = "red";
+
+            // Vibrar
+            if (navigator.vibrate) navigator.vibrate(500);
+
+            // Reiniciar tras 2 seg
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        }
+
+        // --- Fallback para PC (Teclado) ---
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            const currentX = car.object3D.position.x;
+            if (e.key === 'ArrowLeft') car.object3D.position.x = Math.max(-4, currentX - 0.5);
+            if (e.key === 'ArrowRight') car.object3D.position.x = Math.min(4, currentX + 0.5);
+        });
+
+    </script>
+</body>
+
+</html>
