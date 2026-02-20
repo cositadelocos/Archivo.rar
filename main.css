@@ -1,0 +1,180 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* UI Layer */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: none;
+    /* Dejar pasar clicks a la escena salvo en botones */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 30px;
+}
+
+/* Instrucción de Escaneo */
+.instruction-box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 30px;
+    text-align: center;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    transition: opacity 0.3s ease;
+}
+
+.instruction-box p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.scan-line {
+    width: 40px;
+    height: 2px;
+    background: #00e5ff;
+    /* Cyan futurista */
+    margin: 8px auto 0;
+    animation: scan 1.5s infinite alternate;
+    box-shadow: 0 0 10px #00e5ff;
+}
+
+@keyframes scan {
+    from {
+        width: 10px;
+        opacity: 0.5;
+    }
+
+    to {
+        width: 50px;
+        opacity: 1;
+    }
+}
+
+/* Botones e Interactividad */
+#ui-layer button,
+#info-card {
+    pointer-events: auto;
+    /* Reactivar clicks */
+}
+
+#info-btn {
+    background: rgba(255, 255, 255, 0.95);
+    color: #111;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+#info-btn:active {
+    transform: scale(0.95);
+    background: #fff;
+}
+
+/* Tarjeta de Información (Modal) */
+#info-card {
+    background: rgba(20, 20, 20, 0.9);
+    /* Más opaco para lectura */
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 25px;
+    border-radius: 20px 20px 0 0;
+    /* Bordes redondeados solo arriba */
+    width: 100%;
+    max-width: 500px;
+    /* En escritorio no ocupar todo */
+    box-sizing: border-box;
+    position: absolute;
+    bottom: 0;
+    max-height: 70vh;
+    /* Máximo 70% de la altura de pantalla */
+    overflow-y: auto;
+    /* Scroll si el texto es muy largo */
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+#info-card h2 {
+    margin: 0 0 5px 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.badge {
+    background: #333;
+    color: #ccc;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+#info-card p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #ddd;
+    margin-top: 10px;
+}
+
+#close-card {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+#close-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.hidden {
+    display: none !important;
+}
