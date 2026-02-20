@@ -13,18 +13,33 @@
 <body>
   <!-- UI Overlay: Botón de Info y Tarjeta de Detalles -->
   <div id="ui-layer">
-    <!-- Mensaje de escaneo (se oculta al encontrar target) -->
+    <!-- Mensaje de escaneo -->
     <div id="scan-instruction" class="instruction-box">
       <p>Apunta a un marcador</p>
       <div class="scan-line"></div>
     </div>
 
-    <!-- Botón de Información (aparece al encontrar target) -->
+    <!-- CONTROLES DE CALIBRACIÓN (TEMPORAL) -->
+    <div id="calibration-controls"
+      style="background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; margin-bottom: 20px; text-align: left; width: 80%; pointer-events: auto;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #00e5ff;">🔧 Calibración</h3>
+
+      <label style="font-size: 12px;">Escala <span id="val-scale">1.5</span></label>
+      <input type="range" min="0.1" max="5" step="0.1" value="1.5" id="slider-scale" style="width: 100%;">
+
+      <label style="font-size: 12px;">Rot X <span id="val-rotx">90</span></label>
+      <input type="range" min="-180" max="180" step="5" value="90" id="slider-rotx" style="width: 100%;">
+
+      <label style="font-size: 12px;">Rot Y <span id="val-roty">0</span></label>
+      <input type="range" min="-180" max="180" step="5" value="0" id="slider-roty" style="width: 100%;">
+    </div>
+
+    <!-- Botón de Información -->
     <button id="info-btn" class="hidden">
       ℹ️ Ver Ficha
     </button>
 
-    <!-- Tarjeta de Información (Modal) -->
+    <!-- Tarjeta de Información -->
     <div id="info-card" class="hidden">
       <button id="close-card">×</button>
       <h2 id="card-title">Título de la Pieza</h2>
@@ -49,17 +64,20 @@
     <!-- Target 0: Brote -->
     <a-entity mindar-image-target="targetIndex: 0" data-id="brote">
       <!-- Escala ajustada a 1.5 según feedback -->
-      <a-gltf-model src="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
+      <a-gltf-model id="model-brote" src="#modelo-brote" position="0 0 0" scale="1.5 1.5 1.5"
+        rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
     <!-- Target 1: Mueble -->
     <a-entity mindar-image-target="targetIndex: 1" data-id="mueble">
-      <a-gltf-model src="#modelo-mueble" position="0 0 0" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
+      <a-gltf-model id="model-mueble" src="#modelo-mueble" position="0 0 0" scale="1.5 1.5 1.5"
+        rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
     <!-- Target 2: Carro -->
     <a-entity mindar-image-target="targetIndex: 2" data-id="carro">
-      <a-gltf-model src="#modelo-carro" position="0 0 0" scale="1.5 1.5 1.5" rotation="90 0 0"></a-gltf-model>
+      <a-gltf-model id="model-carro" src="#modelo-carro" position="0 0 0" scale="1.5 1.5 1.5"
+        rotation="90 0 0"></a-gltf-model>
     </a-entity>
 
   </a-scene>
@@ -72,18 +90,8 @@
         year: "Proyecto",
         desc: `
             <p>Surge como respuesta a la tensión entre las raíces del eucalipto pomarroso y la rigidez del pavimento. A través de un sistema modular inspirado en patrones rizomáticos, protege, oxigena y revitaliza el suelo sin limitar el crecimiento vegetal.</p>
-            
             <strong>Concepto</strong>
             <p>El proyecto nace de la tensión entre las raíces del eucalipto y la rigidez del pavimento urbano. Se plantea un sistema modular que transforma el conflicto en una oportunidad de coexistencia.</p>
-            
-            <strong>¿Cómo funciona?</strong>
-            <ul style="padding-left: 20px; list-style-type: disc;">
-              <li>Primero se coloca un módulo en la base para oxigenar y drenar.</li>
-              <li>Después el módulo respira: entra aire y el agua se filtra.</li>
-              <li>El suelo revitalizado favorece la aparición de vegetación.</li>
-              <li>Finalmente los submódulos forman una red de convivencia armónica.</li>
-            </ul>
-            <p><em>En resumen, el sistema transforma un espacio rígido en uno vivo y adaptable.</em></p>
           `
       },
       'mueble': {
@@ -109,7 +117,34 @@
     const cardYear = document.getElementById('card-year');
     const cardDesc = document.getElementById('card-desc');
 
+    // Sliders de Calibración
+    const sScale = document.getElementById('slider-scale');
+    const sRotX = document.getElementById('slider-rotx');
+    const sRotY = document.getElementById('slider-roty');
+    const vScale = document.getElementById('val-scale');
+    const vRotX = document.getElementById('val-rotx');
+    const vRotY = document.getElementById('val-roty');
+
     let currentTargetId = null;
+    let currentModel = null;
+
+    function updateModelTransform() {
+      if (!currentModel) return;
+      const s = sScale.value;
+      const rx = sRotX.value;
+      const ry = sRotY.value;
+
+      currentModel.setAttribute('scale', `${s} ${s} ${s}`);
+      currentModel.setAttribute('rotation', `${rx} ${ry} 0`);
+
+      vScale.textContent = s;
+      vRotX.textContent = rx;
+      vRotY.textContent = ry;
+    }
+
+    sScale.addEventListener('input', updateModelTransform);
+    sRotX.addEventListener('input', updateModelTransform);
+    sRotY.addEventListener('input', updateModelTransform);
 
     // Cerrar tarjeta
     closeCardBtn.addEventListener('click', () => {
@@ -139,6 +174,9 @@
         console.log("Found:", target.dataset.id);
         currentTargetId = target.dataset.id;
 
+        // Capturar el modelo interno para calibrarlo
+        currentModel = target.querySelector('a-gltf-model');
+
         // UI Feedback
         scanInstruction.classList.add('hidden');
         infoBtn.classList.remove('hidden');
@@ -149,7 +187,7 @@
           const data = piecesData[currentTargetId];
           cardTitle.textContent = data.title;
           cardYear.textContent = data.year;
-          cardDesc.textContent = data.desc;
+          cardDesc.innerHTML = data.desc;
         }
       });
 
@@ -165,6 +203,7 @@
           scanInstruction.classList.remove('hidden');
           infoBtn.classList.add('hidden');
           infoCard.classList.add('hidden');
+          currentModel = null; // Soltar referencia
         }
       });
     });
@@ -172,3 +211,4 @@
 </body>
 
 </html>
+```
